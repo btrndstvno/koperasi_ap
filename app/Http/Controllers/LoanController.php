@@ -1,0 +1,266 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Loan;
+use App\Models\Member;
+use App\Models\Transaction;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+class LoanController extends Controller
+{
+    /**
+     * Display a listing of loans.
+     */
+    public function index(Request $request)
+    {
+        $query = Loan::with('member');
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        } else {
+            $query->where('status', 'active'); // Default: show active loans
+        }
+
+        // Search by member
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('member', function ($q) use ($search) {
+                $q->where('nik', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%");
+            });
+        }
+
+        $loans = $query->orderByDesc('created_at')
+            ->paginate(25)
+            ->appends($request->query());
+
+        $totalActive = Loan::where('status', 'active')->sum('remaining_principal');
+        $countActive = Loan::where('status', 'active')->count();
+
+        return view('loans.index', compact('loans', 'totalActive', 'countActive'));
+    }
+
+    /**
+     * Show the form for creating a new loan.
+     */
+    public function create(Request $request)
+    {
+        $member = null;
+        if ($request->filled('member_id')) {
+            $member = Member::findOrFail($request->member_id);
+            
+            // Check if member has active loan
+            if ($member->activeLoans()->exists()) {
+                return back()->with('error', 'Anggota masih memiliki pinjaman aktif.');
+            }
+        }
+
+        // Tidak perlu load semua members, karena pakai Select2 AJAX
+        return view('loans.create', compact('member'));
+    }
+
+    /**
+     * Store a newly created loan as PENDING (Draft).
+     * 
+     * WORKFLOW BARU:
+     * 1. Simpan loan dengan status 'pending'
+     * 2. TIDAK membuat transaksi apapun
+     * 3. Transaksi dibuat saat method approve() dipanggil
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'member_id' => 'required|exists:members,id',
+            'amount' => 'required|numeric|min:100000',
+            'interest_rate' => 'required|numeric|min:0|max:10',
+            'duration' => 'required|integer|min:1|max:60',
+        ]);
+
+        // Check if member has active loan
+        $member = Member::findOrFail($validated['member_id']);
+        if ($member->activeLoans()->exists()) {
+            return back()->with('error', 'Anggota masih memiliki pinjaman aktif.')
+                ->withInput();
+        }
+
+        // Check if member has pending loan
+        if ($member->loans()->where('status', Loan::STATUS_PENDING)->exists()) {
+            return back()->with('error', 'Anggota masih memiliki pengajuan pinjaman yang belum diproses.')
+                ->withInput();
+        }
+
+        $loan = DB::transaction(function () use ($validated) {
+            $pokok = (float) $validated['amount'];
+            $bungaPersen = (float) $validated['interest_rate'];
+            $tenor = (int) $validated['duration'];
+
+            // Hitung bunga potong di awal
+            $totalBunga = round($pokok * ($bungaPersen / 100), 2);
+            $uangCair = $pokok - $totalBunga;
+            $cicilanBulanan = round($pokok / $tenor, 2);
+
+            // Create loan dengan status PENDING
+            return Loan::create([
+                'member_id' => $validated['member_id'],
+                'amount' => $pokok,
+                'interest_rate' => $bungaPersen,
+                'duration' => $tenor,
+                'remaining_principal' => $pokok, // Belum dikurangi, tunggu approve
+                'monthly_installment' => $cicilanBulanan,
+                'total_interest' => $totalBunga,
+                'disbursed_amount' => $uangCair,
+                'status' => Loan::STATUS_PENDING, // Status PENDING
+            ]);
+        });
+
+        return redirect()->route('loans.show', $loan)
+            ->with('success', 'Pengajuan pinjaman berhasil dibuat. Silakan cetak SPJ dan lakukan persetujuan.');
+    }
+
+    /**
+     * Approve and disburse a pending loan.
+     * 
+     * WORKFLOW:
+     * 1. Validasi status masih pending
+     * 2. Ubah status menjadi active
+     * 3. Buat transaksi pencairan (bunga, admin fee)
+     */
+    public function approve(Loan $loan)
+    {
+        if ($loan->status !== Loan::STATUS_PENDING) {
+            return back()->with('error', 'Pinjaman ini tidak dalam status pending.');
+        }
+
+        DB::transaction(function () use ($loan) {
+            $member = $loan->member;
+
+            // Update status menjadi active
+            $loan->update(['status' => Loan::STATUS_ACTIVE]);
+
+            // Buat transaksi: Bunga sebagai pendapatan koperasi
+            if ($loan->total_interest > 0) {
+                Transaction::create([
+                    'member_id' => $member->id,
+                    'loan_id' => $loan->id,
+                    'transaction_date' => now()->toDateString(),
+                    'type' => Transaction::TYPE_INTEREST_REVENUE,
+                    'amount_saving' => 0,
+                    'amount_principal' => 0,
+                    'amount_interest' => $loan->total_interest,
+                    'total_amount' => $loan->total_interest,
+                    'payment_method' => 'deduction',
+                    'notes' => 'Bunga dipotong di awal pencairan pinjaman',
+                ]);
+            }
+
+            // Buat transaksi: Admin Fee (jika ada)
+            if ($loan->admin_fee > 0) {
+                Transaction::create([
+                    'member_id' => $member->id,
+                    'loan_id' => $loan->id,
+                    'transaction_date' => now()->toDateString(),
+                    'type' => Transaction::TYPE_ADMIN_FEE,
+                    'amount_saving' => 0,
+                    'amount_principal' => 0,
+                    'amount_interest' => 0,
+                    'total_amount' => $loan->admin_fee,
+                    'payment_method' => 'deduction',
+                    'notes' => 'Biaya Admin (1%)',
+                ]);
+            }
+
+            // Buat transaksi: Pencairan
+            Transaction::create([
+                'member_id' => $member->id,
+                'loan_id' => $loan->id,
+                'transaction_date' => now()->toDateString(),
+                'type' => Transaction::TYPE_LOAN_DISBURSEMENT,
+                'amount_saving' => 0,
+                'amount_principal' => $loan->disbursed_amount,
+                'amount_interest' => 0,
+                'total_amount' => $loan->disbursed_amount,
+                'payment_method' => 'cash',
+                'notes' => 'Pencairan pinjaman ke anggota',
+            ]);
+        });
+
+        return redirect()->route('loans.show', $loan)
+            ->with('success', 'Pinjaman berhasil dicairkan! Dana sebesar Rp ' . number_format($loan->disbursed_amount, 0, ',', '.') . ' telah diberikan.');
+    }
+
+    /**
+     * Reject a pending loan.
+     */
+    public function reject(Request $request, Loan $loan)
+    {
+        if ($loan->status !== Loan::STATUS_PENDING) {
+            return back()->with('error', 'Pinjaman ini tidak dalam status pending.');
+        }
+
+        $loan->update(['status' => Loan::STATUS_REJECTED]);
+
+        return redirect()->route('loans.index')
+            ->with('success', 'Pengajuan pinjaman ditolak.');
+    }
+
+    /**
+     * Print SPJ (Surat Perjanjian) for a loan.
+     */
+    public function print(Loan $loan)
+    {
+        $loan->load('member');
+        return view('loans.print', compact('loan'));
+    }
+
+    /**
+     * Display the specified loan.
+     */
+    public function show(Loan $loan)
+    {
+        $loan->load(['member', 'transactions' => fn($q) => $q->orderByDesc('transaction_date')]);
+
+        return view('loans.show', compact('loan'));
+    }
+
+    /**
+     * Manual loan repayment.
+     */
+    public function repay(Request $request, Loan $loan)
+    {
+        if ($loan->status !== 'active') {
+            return back()->with('error', 'Pinjaman sudah lunas.');
+        }
+
+        $validated = $request->validate([
+            'amount_principal' => 'required|numeric|min:0|max:' . $loan->remaining_principal,
+            'amount_interest' => 'required|numeric|min:0',
+            'transaction_date' => 'required|date',
+            'notes' => 'nullable|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($loan, $validated) {
+            // Kurangi sisa pokok
+            if ($validated['amount_principal'] > 0) {
+                $loan->reduceRemainingPrincipal($validated['amount_principal']);
+            }
+
+            // Buat transaksi
+            Transaction::create([
+                'member_id' => $loan->member_id,
+                'loan_id' => $loan->id,
+                'transaction_date' => $validated['transaction_date'],
+                'type' => Transaction::TYPE_LOAN_REPAYMENT,
+                'amount_saving' => 0,
+                'amount_principal' => $validated['amount_principal'],
+                'amount_interest' => $validated['amount_interest'],
+                'total_amount' => $validated['amount_principal'] + $validated['amount_interest'],
+                'notes' => $validated['notes'] ?? 'Pembayaran manual',
+            ]);
+        });
+
+        return back()->with('success', 'Pembayaran pinjaman berhasil dicatat.');
+    }
+}

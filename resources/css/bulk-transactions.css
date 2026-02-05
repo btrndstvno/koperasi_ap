@@ -1,0 +1,76 @@
+.bulk-table {
+    font-size: 0.85rem;
+}
+.bulk-table input {
+    min-width: 85px;
+    font-size: 0.85rem;
+}
+.bulk-table .form-control:disabled,
+.bulk-table .form-control[readonly] {
+    background-color: #e9ecef;
+}
+.bulk-table tr.has-loan {
+    background-color: #fff3cd20;
+}
+.subtotal-row {
+    background-color: #e9ecef !important;
+    font-weight: 600;
+}
+.subtotal-row td {
+    border-top: 2px solid #adb5bd;
+}
+.grand-total-row {
+    background-color: #343a40 !important;
+    color: #fff;
+    font-weight: 700;
+}
+.grand-total-row td {
+    padding: 0.75rem;
+    font-size: 1rem;
+}
+.sticky-header th {
+    position: sticky;
+    top: 0;
+    background: #f8f9fa;
+    z-index: 10;
+    border-bottom: 2px solid #dee2e6;
+}
+.text-danger-bold {
+    color: #dc3545;
+    font-weight: 600;
+}
+.text-success-bold {
+    color: #198754;
+    font-weight: 600;
+}
+.input-iur {
+    background-color: #d1ecf1 !important;
+    background-image: none !important; /* Fix potential overlap with validation icons */
+}
+.input-iur-tunai {
+    background-color: #d4edda !important;
+    background-image: none !important;
+}
+.badge-dept {
+    font-size: 0.7rem;
+}
+.notes-input {
+    min-width: 120px;
+    font-size: 0.8rem;
+}
+.nav-tabs .nav-link {
+    font-weight: 600;
+}
+.nav-tabs .nav-link.active {
+    background-color: #2c3e50;
+    color: #fff;
+    border-color: #2c3e50;
+}
+.tab-badge {
+    font-size: 0.7rem;
+    margin-left: 5px;
+}
+.table-container {
+    max-height: 60vh;
+    overflow-y: auto;
+}
