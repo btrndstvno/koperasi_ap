@@ -31,13 +31,8 @@ class LoanController extends Controller
         // Filter by status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
-        } else {
-            // Admin default: active loans. Member default: all loans?
-            // Let's keep it consistent or allow seeing all for member
-            if (\Illuminate\Support\Facades\Auth::user()->isAdmin()) {
-                 $query->where('status', 'active');
-            }
-        }
+        } 
+
 
         // Search by member (Only for admin really, but safe to keep)
         if ($request->filled('search')) {
