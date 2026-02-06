@@ -68,7 +68,7 @@ class TransactionController extends Controller
                     'name' => $member->name,
                     'group_tag' => $member->group_tag ?? 'Office',
                     'dept' => $member->dept,
-                    'csd' => $member->csd ?? '-',
+                    'csd' => $member->group_tag ?? '-', // Use Group Tag as CSD
                     'savings_balance' => (float) $member->savings_balance,
                     'has_loan' => $activeLoan !== null,
                     'loan_id' => $activeLoan?->id,

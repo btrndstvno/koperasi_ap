@@ -203,7 +203,7 @@ class ReportController extends Controller
                 'name' => $member->name,
                 'group_tag' => $member->group_tag ?? 'Office',
                 'dept' => $member->dept,
-                'csd' => $member->csd ?? '-',
+                'csd' => $member->group_tag ?? '-', // Updated: CSD reflects Group Tag
                 'pot_kop' => $pot_kop,
                 'iur_kop' => $iur_kop,
                 'iur_tunai' => $iur_tunai,

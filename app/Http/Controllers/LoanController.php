@@ -34,7 +34,7 @@ class LoanController extends Controller
         } 
 
 
-        // Search by member (Only for admin really, but safe to keep)
+        // Search by member (Only for admin)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('member', function ($q) use ($search) {
@@ -81,12 +81,7 @@ class LoanController extends Controller
     }
 
     /**
-     * Store a newly created loan as PENDING (Draft).
-     * 
-     * WORKFLOW BARU:
-     * 1. Simpan loan dengan status 'pending'
-     * 2. TIDAK membuat transaksi apapun
-     * 3. Transaksi dibuat saat method approve() dipanggil
+     * simpan pinjaman baru jadi pending
      */
     public function store(Request $request)
     {
@@ -97,14 +92,14 @@ class LoanController extends Controller
             'duration' => 'required|integer|min:1|max:60',
         ]);
 
-        // Check if member has active loan
+        // Check member punya pinjaman aktif ga
         $member = Member::findOrFail($validated['member_id']);
         if ($member->activeLoans()->exists()) {
             return back()->with('error', 'Anggota masih memiliki pinjaman aktif.')
                 ->withInput();
         }
 
-        // Check if member has pending loan
+        // Check member punya pengajuan pinjaman pending ga
         if ($member->loans()->where('status', Loan::STATUS_PENDING)->exists()) {
             return back()->with('error', 'Anggota masih memiliki pengajuan pinjaman yang belum diproses.')
                 ->withInput();
@@ -192,12 +187,7 @@ class LoanController extends Controller
     }
 
     /**
-     * Approve and disburse a pending loan.
-     * 
-     * WORKFLOW:
-     * 1. Validasi status masih pending
-     * 2. Ubah status menjadi active
-     * 3. Buat transaksi pencairan (bunga, admin fee)
+     * terima dan proses pinjaman yang pending
      */
     public function approve(Request $request, Loan $loan)
     {

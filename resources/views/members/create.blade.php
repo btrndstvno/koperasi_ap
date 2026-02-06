@@ -72,9 +72,9 @@
                         </div>
                     </div>
 
-                    {{-- Row 3: Departemen & CSD --}}
+                    {{-- Row 3: Departemen --}}
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-md-12">
                             <label class="form-label form-label-required">Departemen (DEPT)</label>
                             <select name="dept" id="deptSelect" class="form-select @error('dept') is-invalid @enderror" required>
                                 <option value="">-- Pilih atau ketik baru --</option>
@@ -83,19 +83,6 @@
                                 @endforeach
                             </select>
                             @error('dept')
-                                <div class="invalid-feedback">{{ $message }}</div>
-                            @enderror
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Posisi / CSD</label>
-                            <select name="csd" id="csdSelect" class="form-select @error('csd') is-invalid @enderror">
-                                <option value="">-- Pilih atau ketik baru --</option>
-                                @foreach($existing_csds as $csd)
-                                    <option value="{{ $csd }}" {{ old('csd') == $csd ? 'selected' : '' }}>{{ $csd }}</option>
-                                @endforeach
-                            </select>
-                            <small class="text-muted" id="csdHint">Opsional - posisi/jabatan anggota</small>
-                            @error('csd')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
                         </div>
@@ -147,49 +134,6 @@ document.addEventListener('DOMContentLoaded', function() {
         allowClear: true,
         width: '100%'
     });
-
-    const csdSelect = $('#csdSelect').select2({
-        theme: 'bootstrap-5',
-        tags: true,
-        placeholder: '-- Pilih atau ketik baru --',
-        allowClear: true,
-        width: '100%'
-    });
-
-    const groupTagSelect = document.getElementById('groupTagSelect');
-    const csdHint = document.getElementById('csdHint');
-
-    // Function to handle group tag change
-    function handleGroupTagChange() {
-        const selectedTag = groupTagSelect.value;
-        
-        if (selectedTag === 'Manager') {
-            // Set CSD to "Manager" and make it readonly
-            csdSelect.val(null).trigger('change');
-            
-            // Create new option if not exists
-            if ($('#csdSelect option[value="Manager"]').length === 0) {
-                const newOption = new Option('Manager', 'Manager', true, true);
-                csdSelect.append(newOption).trigger('change');
-            } else {
-                csdSelect.val('Manager').trigger('change');
-            }
-            
-            // Disable Select2
-            csdSelect.prop('disabled', true);
-            csdHint.innerHTML = '<span class="text-info"><i class="bi bi-info-circle me-1"></i>Otomatis diisi "Manager"</span>';
-        } else {
-            // Enable CSD selection
-            csdSelect.prop('disabled', false);
-            csdHint.innerHTML = 'Opsional - posisi/jabatan anggota';
-        }
-    }
-
-    // Listen to group tag changes
-    groupTagSelect.addEventListener('change', handleGroupTagChange);
-
-    // Initial check
-    handleGroupTagChange();
 
     // Form submission with loading state
     const form = document.getElementById('memberForm');
