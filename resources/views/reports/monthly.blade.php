@@ -101,26 +101,28 @@
                             <thead class="table-light">
                                 <tr class="text-center align-middle">
                                     <th width="40">NO</th>
-                                    <th width="80">NIK</th>
-                                    <th>NAMA</th>
-                                    <th width="80">DEPT</th>
-                                    <th width="100">POT KOP</th>
-                                    <th width="100">IUR KOP</th>
-                                    <th width="100">IUR TUNAI</th>
-                                    <th width="100">TOTAL</th>
-                                    <th>KETERANGAN</th>
+                                    <th width="70">NIK</th>
+                                    <th>NAMA/CSD</th>
+                                    <th width="60">DEPT</th>
+                                    <th width="90">POT KOP</th>
+                                    <th width="90">IUR KOP</th>
+                                    <th width="90">IUR TUNAI</th>
+                                    <th width="90">JUMLAH</th>
+                                    <th width="100">SISA PINJAMAN</th>
+                                    <th width="100">SALDO KOP</th>
+                                    <th width="80">KET</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @forelse($data->members as $index => $member)
                                 <tr>
                                     <td class="text-center">{{ $index + 1 }}</td>
-                                    <td><code>{{ $member->nik }}</code></td>
+                                    <td><code class="small">{{ $member->nik }}</code></td>
                                     <td>
                                         {{ $member->name }}
                                         <div class="small text-muted">{{ $member->csd }}</div>
                                     </td>
-                                    <td class="text-center">{{ $member->dept }}</td>
+                                    <td class="text-center small">{{ $member->dept }}</td>
                                     <td class="text-end text-danger fw-bold">
                                         {{ $member->pot_kop > 0 ? number_format($member->pot_kop, 0, ',', '.') : '-' }}
                                     </td>
@@ -133,21 +135,32 @@
                                     <td class="text-end fw-bold">
                                         {{ $member->total > 0 ? number_format($member->total, 0, ',', '.') : '-' }}
                                     </td>
-                                    <td></td>
+                                    <td class="text-end text-danger">
+                                        {{ $member->sisa_pinjaman > 0 ? number_format($member->sisa_pinjaman, 0, ',', '.') : '-' }}
+                                        @if($member->sisa_tenor > 0)
+                                        <div class="small text-muted">({{ $member->sisa_tenor }}x)</div>
+                                        @endif
+                                    </td>
+                                    <td class="text-end text-success fw-bold">
+                                        {{ $member->saldo_kop > 0 ? number_format($member->saldo_kop, 0, ',', '.') : '-' }}
+                                    </td>
+                                    <td class="small text-muted"></td>
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="9" class="text-center py-3 text-muted">Tidak ada data</td>
+                                    <td colspan="11" class="text-center py-3 text-muted">Tidak ada data</td>
                                 </tr>
                                 @endforelse
                             </tbody>
                             <tfoot class="table-light fw-bold">
                                 <tr>
                                     <td colspan="4" class="text-end">SUBTOTAL {{ strtoupper($tag) }}</td>
-                                    <td class="text-end">{{ number_format($data->subtotal_pot, 0, ',', '.') }}</td>
-                                    <td class="text-end">{{ number_format($data->subtotal_iur, 0, ',', '.') }}</td>
-                                    <td class="text-end">{{ number_format($data->subtotal_iur_tunai, 0, ',', '.') }}</td>
+                                    <td class="text-end text-danger">{{ number_format($data->subtotal_pot, 0, ',', '.') }}</td>
+                                    <td class="text-end text-success">{{ number_format($data->subtotal_iur, 0, ',', '.') }}</td>
+                                    <td class="text-end text-primary">{{ number_format($data->subtotal_iur_tunai, 0, ',', '.') }}</td>
                                     <td class="text-end">{{ number_format($data->subtotal_total, 0, ',', '.') }}</td>
+                                    <td class="text-end text-danger">{{ number_format($data->subtotal_sisa_pinjaman, 0, ',', '.') }}</td>
+                                    <td class="text-end text-success">{{ number_format($data->subtotal_saldo_kop, 0, ',', '.') }}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
@@ -176,6 +189,17 @@
                 <div class="col">
                     <small class="d-block text-muted">GRAND TOTAL</small>
                     <span class="text-dark h4">Rp {{ number_format($grandTotal->total, 0, ',', '.') }}</span>
+                </div>
+            </div>
+            <hr>
+            <div class="row text-center fw-bold">
+                <div class="col">
+                    <small class="d-block text-muted">TOTAL SISA PINJAMAN (Historis)</small>
+                    <span class="text-danger h5">Rp {{ number_format($grandTotal->sisa_pinjaman, 0, ',', '.') }}</span>
+                </div>
+                <div class="col">
+                    <small class="d-block text-muted">TOTAL SALDO SIMPANAN (Historis)</small>
+                    <span class="text-success h5">Rp {{ number_format($grandTotal->saldo_kop, 0, ',', '.') }}</span>
                 </div>
             </div>
         </div>

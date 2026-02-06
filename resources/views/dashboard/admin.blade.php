@@ -1,9 +1,20 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard - Koperasi Karyawan')
+@section('title', 'Dashboard Admin - Koperasi')
 @section('breadcrumb', 'Dashboard')
 
 @section('content')
+<!-- Pending Loans Alert -->
+@if($pendingLoansCount > 0)
+<div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+    <div>
+        <strong>Perhatian!</strong> Ada <strong>{{ $pendingLoansCount }}</strong> permintaan pinjaman menunggu persetujuan.
+        <a href="{{ route('loans.index', ['status' => 'pending']) }}" class="alert-link ms-2">Lihat Sekarang →</a>
+    </div>
+</div>
+@endif
+
 <div class="row g-4 mb-4">
     <!-- Total Anggota -->
     <div class="col-md-6 col-xl-3">
@@ -162,3 +173,33 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    @if($pendingLoansCount > 0)
+    // SweetAlert untuk notifikasi pinjaman pending
+    Swal.fire({
+        title: 'Permintaan Pinjaman Baru!',
+        html: 'Ada <strong>{{ $pendingLoansCount }}</strong> pengajuan pinjaman yang menunggu persetujuan.',
+        icon: 'info',
+        showCancelButton: true,
+        confirmButtonColor: '#3085d6',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="bi bi-eye me-1"></i> Lihat Sekarang',
+        cancelButtonText: 'Nanti Saja',
+        showClass: {
+            popup: 'animate__animated animate__fadeInDown'
+        },
+        hideClass: {
+            popup: 'animate__animated animate__fadeOutUp'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '{{ route("loans.index", ["status" => "pending"]) }}';
+        }
+    });
+    @endif
+});
+</script>
+@endpush

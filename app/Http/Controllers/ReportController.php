@@ -97,37 +97,96 @@ class ReportController extends Controller
     }
 
     /**
-     * Display monthly read-only report (Historical).
+     * Display monthly read-only report (Historical Snapshot).
+     * 
+     * CRITICAL LOGIC:
+     * - Saldo Simpanan Historis = Sum transaksi saving_deposit s/d akhir bulan terpilih
+     * - Sisa Pinjaman Historis = Pokok Awal - Sum transaksi loan_repayment s/d akhir bulan
+     * - Sisa Tenor Historis = Tenor Awal - Count pembayaran s/d akhir bulan
      */
     public function monthly(Request $request)
     {
-        $month = $request->get('month', now()->month);
-        $year = $request->get('year', now()->year);
+        $month = (int) $request->get('month', now()->month);
+        $year = (int) $request->get('year', now()->year);
 
-        // Ambil semua Member dengan transactions bulan ini (Eager Load dengan Filter)
-        $members = Member::with(['transactions' => function($query) use ($month, $year) {
-            $query->whereMonth('transaction_date', $month)
-                  ->whereYear('transaction_date', $year);
-        }])->get();
+        // Tanggal akhir bulan terpilih (untuk snapshot historis)
+        $endOfMonth = \Carbon\Carbon::create($year, $month)->endOfMonth()->toDateString();
+        $startOfMonth = \Carbon\Carbon::create($year, $month)->startOfMonth()->toDateString();
 
-        // Process data manual
-        $processedMembers = $members->map(function ($member) {
-            // Calculate totals dari transactions yang sudah difilter
-            $pot_kop = $member->transactions
+        // Ambil semua Member dengan loans dan ALL transactions (untuk kalkulasi historis)
+        $members = Member::with(['loans', 'transactions'])->get();
+
+        // Process data dengan kalkulasi historis
+        $processedMembers = $members->map(function ($member) use ($month, $year, $endOfMonth, $startOfMonth) {
+            // ========== TRANSAKSI BULAN INI ==========
+            $monthlyTransactions = $member->transactions->filter(function ($trx) use ($month, $year) {
+                return $trx->transaction_date->month == $month && $trx->transaction_date->year == $year;
+            });
+
+            // POT KOP = Cicilan pinjaman bulan ini
+            $pot_kop = $monthlyTransactions
                 ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
+                ->sum('amount_principal');
+
+            // IUR KOP = Simpanan potong gaji bulan ini
+            $iur_kop = $monthlyTransactions
+                ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                ->where('payment_method', 'payroll_deduction')
                 ->sum('total_amount');
 
-            // Iur Kop = Saving deposit via potong gaji
-            $iur_kop = $member->transactions
+            // IUR TUNAI = Simpanan tunai/transfer bulan ini
+            $iur_tunai = $monthlyTransactions
                 ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
-                ->where('payment_method', 'salary_deduction')
+                ->filter(fn($t) => in_array($t->payment_method, ['cash', 'transfer']))
                 ->sum('total_amount');
 
-            // Iur Tunai = Saving deposit via cash/transfer
-            $iur_tunai = $member->transactions
+            // ========== SALDO HISTORIS (Snapshot s/d akhir bulan) ==========
+            // Sum semua deposit - sum semua withdraw sampai akhir bulan
+            $historicalDeposits = $member->transactions
                 ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
-                ->whereIn('payment_method', ['cash', 'transfer'])
+                // Filter hanya simpanan yang sudah terjadi s/d akhir bulan laporan
+                ->where('transaction_date', '<=', $endOfMonth)
                 ->sum('total_amount');
+
+            $historicalWithdraws = $member->transactions
+                ->where('type', Transaction::TYPE_SAVING_WITHDRAW)
+                ->where('transaction_date', '<=', $endOfMonth)
+                ->sum('total_amount');
+
+            $saldoHistoris = $historicalDeposits - $historicalWithdraws;
+
+            // ========== SISA PINJAMAN HISTORIS ==========
+            // Cari pinjaman yang aktif pada periode tersebut
+            $activeLoan = $member->loans
+                ->filter(function ($loan) use ($endOfMonth) {
+                    return $loan->created_at->toDateString() <= $endOfMonth 
+                        && in_array($loan->status, ['active', 'paid']);
+                })
+                ->sortByDesc('created_at')
+                ->first();
+
+            $sisaPinjamanHistoris = 0;
+            $sisaTenorHistoris = 0;
+
+            if ($activeLoan) {
+                // Sum pembayaran pokok sampai akhir bulan terpilih
+                $totalPaidPrincipal = $member->transactions
+                    ->where('loan_id', $activeLoan->id)
+                    ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
+                    ->where('transaction_date', '<=', $endOfMonth)
+                    ->sum('amount_principal');
+
+                $sisaPinjamanHistoris = max(0, $activeLoan->amount - $totalPaidPrincipal);
+
+                // Count jumlah pembayaran untuk hitung sisa tenor
+                $paidInstallments = $member->transactions
+                    ->where('loan_id', $activeLoan->id)
+                    ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
+                    ->where('transaction_date', '<=', $endOfMonth)
+                    ->count();
+
+                $sisaTenorHistoris = max(0, $activeLoan->duration - $paidInstallments);
+            }
 
             return (object) [
                 'id' => $member->id,
@@ -140,9 +199,14 @@ class ReportController extends Controller
                 'pot_kop' => $pot_kop,
                 'iur_kop' => $iur_kop,
                 'iur_tunai' => $iur_tunai,
-                'total' => $pot_kop + $iur_kop + $iur_tunai,
+                // JUMLAH = Total tagihan ke gaji (Potongan + Iuran Wajib/Sukarela Potong Gaji)
+                // Tidak termasuk Iuran Tunai (karena Iuran Tunai dibayar cash, bukan potong gaji)
+                'total' => $pot_kop + $iur_kop, 
+                'sisa_pinjaman' => $sisaPinjamanHistoris,
+                'sisa_tenor' => $sisaTenorHistoris,
+                'saldo_kop' => $saldoHistoris,
             ];
-        })->sortBy('nik_numeric'); // Urutkan berdasarkan numeric NIK
+        })->sortBy('nik_numeric');
 
         // Grouping
         $groupOrder = ['Manager' => 1, 'Bangunan' => 2, 'CSD' => 3, 'Office' => 4];
@@ -154,7 +218,10 @@ class ReportController extends Controller
                 'subtotal_pot' => $items->sum('pot_kop'),
                 'subtotal_iur' => $items->sum('iur_kop'),
                 'subtotal_iur_tunai' => $items->sum('iur_tunai'),
-                'subtotal_total' => $items->sum('total'),
+                // Subtotal Total harus match dengan logic per member (pot + iur)
+                'subtotal_total' => $items->sum('total'), 
+                'subtotal_sisa_pinjaman' => $items->sum('sisa_pinjaman'),
+                'subtotal_saldo_kop' => $items->sum('saldo_kop'),
             ];
         })->sortBy(function ($group, $key) use ($groupOrder) {
             return $groupOrder[$key] ?? 999;
@@ -166,6 +233,8 @@ class ReportController extends Controller
             'iur_kop' => $processedMembers->sum('iur_kop'),
             'iur_tunai' => $processedMembers->sum('iur_tunai'),
             'total' => $processedMembers->sum('total'),
+            'sisa_pinjaman' => $processedMembers->sum('sisa_pinjaman'),
+            'saldo_kop' => $processedMembers->sum('saldo_kop'),
         ];
 
         return view('reports.monthly', compact('groupedData', 'grandTotal', 'month', 'year'));

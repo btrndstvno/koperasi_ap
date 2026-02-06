@@ -17,14 +17,29 @@ class LoanController extends Controller
     {
         $query = Loan::with('member');
 
+        // If user is member, only show their loans
+        if (\Illuminate\Support\Facades\Auth::user()->isMember()) {
+            $member = \Illuminate\Support\Facades\Auth::user()->member;
+            if ($member) {
+                $query->where('member_id', $member->id);
+            } else {
+                // If member record not found, showing empty
+                $query->where('member_id', 0);
+            }
+        }
+
         // Filter by status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         } else {
-            $query->where('status', 'active'); // Default: show active loans
+            // Admin default: active loans. Member default: all loans?
+            // Let's keep it consistent or allow seeing all for member
+            if (\Illuminate\Support\Facades\Auth::user()->isAdmin()) {
+                 $query->where('status', 'active');
+            }
         }
 
-        // Search by member
+        // Search by member (Only for admin really, but safe to keep)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->whereHas('member', function ($q) use ($search) {
@@ -36,9 +51,17 @@ class LoanController extends Controller
         $loans = $query->orderByDesc('created_at')
             ->paginate(25)
             ->appends($request->query());
-
-        $totalActive = Loan::where('status', 'active')->sum('remaining_principal');
-        $countActive = Loan::where('status', 'active')->count();
+            
+        // Statistics (Only meaningful for Admin or specific member context)
+        if (\Illuminate\Support\Facades\Auth::user()->isAdmin()) {
+            $totalActive = Loan::where('status', 'active')->sum('remaining_principal');
+            $countActive = Loan::where('status', 'active')->count();
+        } else {
+            // For member, stats for their own loans
+            $memberId = \Illuminate\Support\Facades\Auth::user()->member->id ?? 0;
+            $totalActive = Loan::where('member_id', $memberId)->where('status', 'active')->sum('remaining_principal');
+            $countActive = Loan::where('member_id', $memberId)->where('status', 'active')->count();
+        }
 
         return view('loans.index', compact('loans', 'totalActive', 'countActive'));
     }
@@ -99,7 +122,14 @@ class LoanController extends Controller
 
             // Hitung bunga potong di awal
             $totalBunga = round($pokok * ($bungaPersen / 100), 2);
-            $uangCair = $pokok - $totalBunga;
+            
+            // Hitung Biaya Admin 1% (Hidden Fee)
+            // Biaya admin dipotong dari pencairan
+            $adminFee = round($pokok * 0.01, 2);
+            
+            // Uang Cair = Pokok - Bunga - Admin Fee
+            $uangCair = $pokok - $totalBunga - $adminFee;
+            
             $cicilanBulanan = round($pokok / $tenor, 2);
 
             // Create loan dengan status PENDING
@@ -111,6 +141,7 @@ class LoanController extends Controller
                 'remaining_principal' => $pokok, // Belum dikurangi, tunggu approve
                 'monthly_installment' => $cicilanBulanan,
                 'total_interest' => $totalBunga,
+                'admin_fee' => $adminFee,
                 'disbursed_amount' => $uangCair,
                 'status' => Loan::STATUS_PENDING, // Status PENDING
             ]);
@@ -220,6 +251,14 @@ class LoanController extends Controller
      */
     public function show(Loan $loan)
     {
+        // Authorization check
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if ($user->isMember()) {
+            if ($loan->member_id !== $user->member->id) {
+                abort(403, 'Unauthorized access to this loan.');
+            }
+        }
+
         $loan->load(['member', 'transactions' => fn($q) => $q->orderByDesc('transaction_date')]);
 
         return view('loans.show', compact('loan'));

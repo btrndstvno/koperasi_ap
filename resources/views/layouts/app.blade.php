@@ -226,18 +226,37 @@
                     <i class="bi bi-speedometer2"></i> Dashboard
                 </a>
             </li>
+
+            {{-- ADMIN MENUS --}}
+            @if(Auth::user()->isAdmin())
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('members.*') ? 'active' : '' }}" href="{{ route('members.index') }}">
                     <i class="bi bi-people"></i> Anggota
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('loans.*') ? 'active' : '' }}" href="{{ route('loans.index') }}">
+                <a class="nav-link {{ request()->routeIs('loans.*') && !request()->routeIs('loans.show') ? 'active' : '' }}" href="{{ route('loans.index') }}">
                     <i class="bi bi-cash-stack"></i> Pinjaman
                 </a>
             </li>
+            @endif
+
+            {{-- MEMBER MENUS --}}
+            @if(Auth::user()->isMember())
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('loans.*') ? 'active' : '' }}" href="{{ route('loans.index') }}">
+                    <i class="bi bi-clock-history"></i> Riwayat Pinjaman
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('members.my-savings') ? 'active' : '' }}" href="{{ route('members.my-savings') }}">
+                    <i class="bi bi-wallet2"></i> Riwayat Pembayaran
+                </a>
+            </li>
+            @endif
         </ul>
         
+        @if(Auth::user()->isAdmin())
         <div class="sidebar-heading">Transaksi</div>
         <ul class="nav flex-column">
             <li class="nav-item">
@@ -255,8 +274,13 @@
         <div class="sidebar-heading">Laporan</div>
         <ul class="nav flex-column">
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}" href="{{ route('reports.index') }}">
-                    <i class="bi bi-bar-chart"></i> Laporan Bulanan
+                <a class="nav-link {{ request()->routeIs('reports.monthly') ? 'active' : '' }}" href="{{ route('reports.monthly') }}">
+                    <i class="bi bi-table"></i> Laporan Transaksi
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}" href="{{ route('reports.index') }}">
+                    <i class="bi bi-speedometer"></i> Ringkasan
                 </a>
             </li>
             <li class="nav-item">
@@ -265,6 +289,7 @@
                 </a>
             </li>
         </ul>
+        @endif
     </nav>
 
     <!-- Main Content -->

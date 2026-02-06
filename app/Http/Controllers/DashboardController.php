@@ -6,15 +6,34 @@ use App\Models\Loan;
 use App\Models\Member;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
+    /**
+     * Traffic Controller - Redirect berdasarkan role user.
+     */
     public function index()
+    {
+        $user = Auth::user();
+
+        if ($user->role === 'admin') {
+            return $this->adminDashboard();
+        }
+
+        return $this->memberDashboard();
+    }
+
+    /**
+     * Admin Dashboard dengan statistik lengkap.
+     */
+    protected function adminDashboard()
     {
         $totalMembers = Member::count();
         $totalSavings = Member::sum('savings_balance');
         $totalLoans = Loan::where('status', 'active')->sum('remaining_principal');
         $activeLoans = Loan::where('status', 'active')->count();
+        $pendingLoansCount = Loan::where('status', 'pending')->count();
         
         $recentTransactions = Transaction::with('member')
             ->orderBy('transaction_date', 'desc')
@@ -28,13 +47,36 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        return view('dashboard', compact(
+        return view('dashboard.admin', compact(
             'totalMembers',
             'totalSavings',
             'totalLoans',
             'activeLoans',
+            'pendingLoansCount',
             'recentTransactions',
             'savingsByDept'
         ));
+    }
+
+    /**
+     * Member Dashboard - Lihat simpanan & pinjaman sendiri.
+     */
+    protected function memberDashboard()
+    {
+        $user = Auth::user();
+        $member = $user->member;
+
+        if (!$member) {
+            return view('dashboard.member', [
+                'member' => null,
+                'activeLoan' => null,
+                'pendingLoan' => null,
+            ]);
+        }
+
+        $activeLoan = $member->loans()->where('status', 'active')->first();
+        $pendingLoan = $member->loans()->where('status', 'pending')->first();
+
+        return view('dashboard.member', compact('member', 'activeLoan', 'pendingLoan'));
     }
 }

@@ -6,9 +6,11 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h4 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Daftar Pinjaman</h4>
+    @if(Auth::user()->isAdmin())
     <a href="{{ route('loans.create') }}" class="btn btn-primary">
         <i class="bi bi-plus-circle me-1"></i> Pinjaman Baru
     </a>
+    @endif
 </div>
 
 <!-- Summary Cards -->
@@ -18,7 +20,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="stat-value">Rp {{ number_format($totalActive, 0, ',', '.') }}</div>
-                    <div class="stat-label">Total Piutang Aktif</div>
+                    <div class="stat-label">Total {{ Auth::user()->isMember() ? 'Hutang' : 'Piutang' }} Aktif</div>
                 </div>
                 <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
             </div>
@@ -41,12 +43,14 @@
 <div class="card mb-4">
     <div class="card-body">
         <form action="{{ route('loans.index') }}" method="GET" class="row g-3">
+            @if(Auth::user()->isAdmin())
             <div class="col-md-4">
                 <div class="input-group">
                     <span class="input-group-text"><i class="bi bi-search"></i></span>
                     <input type="text" name="search" class="form-control" placeholder="Cari NIK atau Nama anggota..." value="{{ request('search') }}">
                 </div>
             </div>
+            @endif
             <div class="col-md-3">
                 <select name="status" class="form-select">
                     <option value="">Semua Status</option>
@@ -86,9 +90,13 @@
                     @forelse($loans as $loan)
                     <tr>
                         <td>
+                            @if(Auth::user()->isAdmin())
                             <a href="{{ route('members.show', $loan->member) }}" class="text-decoration-none">
                                 <strong>{{ $loan->member->name }}</strong>
                             </a>
+                            @else
+                                <strong>{{ $loan->member->name }}</strong>
+                            @endif
                             <br>
                             <small class="text-muted">{{ $loan->member->nik }} - {{ $loan->member->dept }}</small>
                         </td>

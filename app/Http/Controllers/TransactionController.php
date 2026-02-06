@@ -11,6 +11,38 @@ use Illuminate\Support\Facades\DB;
 class TransactionController extends Controller
 {
     /**
+     * Show saving/payment history for authenticated member.
+     */
+    public function mySavings()
+    {
+        $user = \Illuminate\Support\Facades\Auth::user();
+        if (!$user->isMember()) {
+            return redirect()->route('dashboard')->with('error', 'Akses ditolak.');
+        }
+
+        $member = $user->member;
+        
+        // Get transactions related to savings (deposits, withdrawals, etc)
+        // Or all transactions? User asked for "History Pembayaran" but also "nabung".
+        // Let's show all transaction history but focused on savings balance changes.
+        
+        // Type of transactions that affect savings:
+        // - PRINCIPAL_SAVING, MANDATORY_SAVING, VOLUNTARY_SAVING
+        // - WITHDRAWAL
+        // - INTEREST_REVENUE (if credited to savings? usually not)
+        // - LOAN_DISBURSEMENT (no)
+        // - LOAN_REPAYMENT (usually cash, but maybe deduction from saving?)
+        
+        // For now, let's just get ALL transactions for this member
+        $transactions = Transaction::where('member_id', $member->id)
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('created_at')
+            ->paginate(20);
+            
+        return view('members.my-savings', compact('member', 'transactions'));
+    }
+
+    /**
      * Show bulk transaction form (Input Massal/Gajian).
      * 
      * SISTEM "BUNGA POTONG DI AWAL" + GROUPING BY GROUP_TAG:

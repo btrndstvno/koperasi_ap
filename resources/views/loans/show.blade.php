@@ -47,7 +47,7 @@
                     </div>
                 </div>
                 
-                @if($loan->isPending())
+                @if($loan->isPending() && Auth::user()->isAdmin())
                 <div class="mt-3 pt-3 border-top">
                     <a href="{{ route('loans.print', $loan) }}" target="_blank" class="btn btn-outline-primary me-2">
                         <i class="bi bi-printer me-1"></i> Cetak SPJ
@@ -223,7 +223,7 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-clock-history me-2"></i>Riwayat Pembayaran</span>
-        @if($loan->status === 'active')
+        @if($loan->status === 'active' && Auth::user()->isAdmin())
         <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#repayModal">
             <i class="bi bi-cash me-1"></i> Bayar Angsuran
         </button>
@@ -239,7 +239,9 @@
                         <th class="text-end">Bunga</th>
                         <th class="text-end">Total</th>
                         <th>Catatan</th>
+                        @if(Auth::user()->isAdmin())
                         <th class="text-center">Aksi</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -250,6 +252,7 @@
                         <td class="text-end">Rp {{ number_format($trx->amount_interest, 0, ',', '.') }}</td>
                         <td class="text-end fw-medium">Rp {{ number_format($trx->total_amount, 0, ',', '.') }}</td>
                         <td><small class="text-muted">{{ $trx->notes }}</small></td>
+                        @if(Auth::user()->isAdmin())
                         <td class="text-center">
                             @if($trx->type === 'loan_repayment')
                             <form action="{{ route('transactions.destroy', $trx) }}" method="POST" class="d-inline delete-repayment-form">
@@ -263,6 +266,7 @@
                             <span class="text-muted" title="Transaksi sistem">-</span>
                             @endif
                         </td>
+                        @endif
                     </tr>
                     @empty
                     <tr>
