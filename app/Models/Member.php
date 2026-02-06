@@ -126,4 +126,13 @@ class Member extends Model
             $q->where('status', 'active');
         });
     }
+
+    /**
+     * Get all withdrawals for the member.
+     * Relasi: Member memiliki banyak Penarikan
+     */
+    public function withdrawals(): HasMany
+    {
+        return $this->hasMany(Withdrawal::class);
+    }
 }

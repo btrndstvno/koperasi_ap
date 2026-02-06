@@ -147,6 +147,51 @@ class LoanController extends Controller
     }
 
     /**
+     * Update amount of a pending loan.
+     */
+    public function updateAmount(Request $request, Loan $loan)
+    {
+        if ($loan->status !== Loan::STATUS_PENDING) {
+            return back()->with('error', 'Pinjaman ini tidak dalam status pending.');
+        }
+
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:100000',
+        ]);
+
+        DB::transaction(function () use ($loan, $validated) {
+            // Recalculate everything based on new amount
+            $pokok = (float) $validated['amount'];
+            $bungaPersen = $loan->interest_rate; // Maintain original rate
+            $tenor = $loan->duration; // Maintain original duration
+
+            // Hitung bunga potong di awal
+            $totalBunga = round($pokok * ($bungaPersen / 100), 2);
+            
+            // Hitung Biaya Admin 1% (Hidden Fee)
+            $adminFee = round($pokok * 0.01, 2);
+            
+            // Uang Cair = Pokok - Bunga - Admin Fee
+            $uangCair = $pokok - $totalBunga - $adminFee;
+            
+            $cicilanBulanan = round($pokok / $tenor, 2);
+
+            // Update amounts
+            $loan->update([
+                'amount' => $pokok,
+                'remaining_principal' => $pokok,
+                'monthly_installment' => $cicilanBulanan,
+                'total_interest' => $totalBunga,
+                'admin_fee' => $adminFee,
+                'disbursed_amount' => $uangCair,
+            ]);
+        });
+
+        return redirect()->route('loans.show', $loan)
+            ->with('success', 'Nominal pinjaman berhasil diperbarui.');
+    }
+
+    /**
      * Approve and disburse a pending loan.
      * 
      * WORKFLOW:
@@ -154,7 +199,7 @@ class LoanController extends Controller
      * 2. Ubah status menjadi active
      * 3. Buat transaksi pencairan (bunga, admin fee)
      */
-    public function approve(Loan $loan)
+    public function approve(Request $request, Loan $loan)
     {
         if ($loan->status !== Loan::STATUS_PENDING) {
             return back()->with('error', 'Pinjaman ini tidak dalam status pending.');

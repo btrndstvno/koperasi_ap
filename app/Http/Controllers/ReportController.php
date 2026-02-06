@@ -6,6 +6,8 @@ use App\Models\Loan;
 use App\Models\Member;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
+use App\Exports\MonthlyReportExport;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReportController extends Controller
 {
@@ -242,6 +244,12 @@ class ReportController extends Controller
             'sisa_pinjaman' => $processedMembers->sum('sisa_pinjaman'),
             'saldo_kop' => $processedMembers->sum('saldo_kop'),
         ];
+
+        // Handle Export Request
+        if ($request->has('export') && $request->export == 'excel') {
+            $filename = 'Laporan_Koperasi_Bulan_' . \Carbon\Carbon::create($year, $month)->format('F_Y') . '.xlsx';
+            return Excel::download(new MonthlyReportExport($groupedData, $grandTotal, $month, $year), $filename);
+        }
 
         return view('reports.monthly', compact('groupedData', 'grandTotal', 'month', 'year'));
     }

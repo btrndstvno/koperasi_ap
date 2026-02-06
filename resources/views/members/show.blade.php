@@ -46,11 +46,11 @@
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSavingModal">
                         <i class="bi bi-plus-circle me-1"></i> Tambah Simpanan
                     </button>
-                    @if(!$member->hasActiveLoan())
+                    <!-- @if(!$member->hasActiveLoan())
                     <a href="{{ route('loans.create', ['member_id' => $member->id]) }}" class="btn btn-primary">
                         <i class="bi bi-cash me-1"></i> Buat Pinjaman Baru
                     </a>
-                    @endif
+                    @endif -->
                     <a href="{{ route('members.edit', $member) }}" class="btn btn-outline-secondary">
                         <i class="bi bi-pencil me-1"></i> Edit
                     </a>

@@ -1,87 +1,90 @@
 @extends('layouts.app')
 
-@section('title', 'Daftar Pinjaman - Koperasi')
-@section('breadcrumb', 'Pinjaman')
+@section('title', 'Daftar Pinjaman')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Daftar Pinjaman</h4>
-    @if(Auth::user()->isAdmin())
-    <a href="{{ route('loans.create') }}" class="btn btn-primary">
-        <i class="bi bi-plus-circle me-1"></i> Pinjaman Baru
-    </a>
-    @endif
-</div>
-
-<!-- Summary Cards -->
-<div class="row g-3 mb-4">
+<div class="row mb-4">
     <div class="col-md-6">
-        <div class="stat-card bg-danger">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="stat-value">Rp {{ number_format($totalActive, 0, ',', '.') }}</div>
-                    <div class="stat-label">Total {{ Auth::user()->isMember() ? 'Hutang' : 'Piutang' }} Aktif</div>
-                </div>
-                <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
-            </div>
-        </div>
+        <h2 class="fw-bold text-dark">Daftar Pinjaman</h2>
+        <p class="text-muted">Kelola pengajuan dan pembayaran pinjaman anggota</p>
     </div>
-    <div class="col-md-6">
-        <div class="stat-card bg-info">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <div class="stat-value">{{ number_format($countActive) }}</div>
-                    <div class="stat-label">Pinjaman Aktif</div>
-                </div>
-                <div class="stat-icon"><i class="bi bi-people"></i></div>
-            </div>
-        </div>
+    <div class="col-md-6 text-end">
+        @if(Auth::user()->isMember() && !Auth::user()->member->activeLoans()->exists())
+        <a href="{{ route('loans.create') }}" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i> Ajukan Pinjaman
+        </a>
+        @endif
     </div>
 </div>
 
-<!-- Filter -->
-<div class="card mb-4">
-    <div class="card-body">
+<!-- Statistik Ringkas (Optional) -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0 text-white-50">Total Pinjaman Aktif</h6>
+                        <h3 class="fw-bold mb-0">Rp {{ number_format($totalActive ?? 0, 0, ',', '.') }}</h3>
+                    </div>
+                    <div class="fs-1 text-white-50">
+                        <i class="bi bi-wallet2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-0 text-muted">Jumlah Peminjam</h6>
+                        <h3 class="fw-bold mb-0">{{ $countActive ?? 0 }}</h3>
+                    </div>
+                    <div class="fs-1 text-primary text-opacity-25">
+                        <i class="bi bi-people"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
         <form action="{{ route('loans.index') }}" method="GET" class="row g-3">
-            @if(Auth::user()->isAdmin())
             <div class="col-md-4">
                 <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input type="text" name="search" class="form-control" placeholder="Cari NIK atau Nama anggota..." value="{{ request('search') }}">
+                    <span class="input-group-text bg-light border-end-0">
+                        <i class="bi bi-search text-muted"></i>
+                    </span>
+                    <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Cari NIK atau Nama..." value="{{ request('search') }}">
                 </div>
             </div>
-            @endif
             <div class="col-md-3">
-                <select name="status" class="form-select">
+                <select name="status" class="form-select" onchange="this.form.submit()">
                     <option value="">Semua Status</option>
                     <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending (Menunggu)</option>
-                    <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Aktif</option>
-                    <option value="paid" {{ request('status') == 'paid' ? 'selected' : '' }}>Lunas</option>
-                    <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Ditolak</option>
+                    <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active (Berjalan)</option>
+                    <option value="paid" {{ request('status') == 'paid' ? 'selected' : '' }}>Paid (Lunas)</option>
+                    <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected (Ditolak)</option>
                 </select>
-            </div>
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-secondary w-100">
-                    <i class="bi bi-filter me-1"></i> Filter
-                </button>
             </div>
         </form>
     </div>
-</div>
-
-<!-- Loans Table -->
-<div class="card">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
                     <tr>
+                        <th class="ps-4">Tanggal ID</th>
                         <th>Anggota</th>
                         <th class="text-end">Pokok Pinjaman</th>
-                        <th class="text-center">Durasi</th>
+                        <th class="text-center">Tenor</th>
                         <th class="text-center">Bunga</th>
                         <th class="text-end">Sisa Pokok</th>
-                        <th class="text-center">Progress</th>
+                        <th>Progress</th>
                         <th class="text-center">Status</th>
                         <th class="text-center">Aksi</th>
                     </tr>
@@ -89,15 +92,12 @@
                 <tbody>
                     @forelse($loans as $loan)
                     <tr>
+                        <td class="ps-4">
+                            <span class="fw-bold text-primary">#{{ $loan->id }}</span>
+                            <div class="small text-muted">{{ $loan->created_at->format('d M Y') }}</div>
+                        </td>
                         <td>
-                            @if(Auth::user()->isAdmin())
-                            <a href="{{ route('members.show', $loan->member) }}" class="text-decoration-none">
-                                <strong>{{ $loan->member->name }}</strong>
-                            </a>
-                            @else
-                                <strong>{{ $loan->member->name }}</strong>
-                            @endif
-                            <br>
+                            <div class="fw-bold">{{ $loan->member->name }}</div>
                             <small class="text-muted">{{ $loan->member->nik }} - {{ $loan->member->dept }}</small>
                         </td>
                         <td class="text-end">Rp {{ number_format($loan->amount, 0, ',', '.') }}</td>
@@ -124,9 +124,9 @@
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 @if($loan->status === 'pending')
-                                    <a href="{{ route('loans.print', $loan) }}" class="btn btn-outline-secondary btn-action" title="Cetak SPJ" target="_blank">
+                                    <button onclick="showPrintModal('{{ route('loans.print', $loan) }}?modal=1')" type="button" class="btn btn-outline-secondary btn-action" title="Cetak SPJ">
                                         <i class="bi bi-printer"></i>
-                                    </a>
+                                    </button>
                                     <form action="{{ route('loans.approve', $loan) }}" method="POST" class="d-inline approve-form">
                                         @csrf
                                         <button type="submit" class="btn btn-outline-success btn-action" title="ACC / Cairkan">
@@ -139,7 +139,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="text-center py-4 text-muted">
+                        <td colspan="9" class="text-center py-4 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                             Tidak ada data pinjaman
                         </td>
@@ -155,19 +155,52 @@
     </div>
     @endif
 </div>
+
+<!-- Print Modal -->
+<div class="modal fade" id="printModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-printer me-2"></i>Pratinjau Cetak SPJ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 80vh; background: #525659;">
+                <iframe id="printFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="btn btn-primary" onclick="printFrameContent()">
+                    <i class="bi bi-printer me-1"></i> Cetak Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
+function showPrintModal(url) {
+    const modal = new bootstrap.Modal(document.getElementById('printModal'));
+    const frame = document.getElementById('printFrame');
+    frame.src = url;
+    modal.show();
+}
+
+function printFrameContent() {
+    const frame = document.getElementById('printFrame');
+    frame.contentWindow.print();
+}
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Konfirmasi ACC / Cairkan pinjaman
+    // Konfirmasi ACC / Cairkan pinjaman (Simple)
     document.querySelectorAll('.approve-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
             Swal.fire({
                 title: 'Cairkan Pinjaman?',
-                html: 'Dana akan dicairkan ke anggota.<br><strong>Pastikan SPJ sudah ditandatangani!</strong>',
+                html: 'Status akan berubah menjadi <strong>Aktif</strong> dan dana dicairkan.<br><small class="text-muted">Untuk ubah nominal, silakan masuk ke detail pinjaman.</small>',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',
@@ -177,7 +210,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 reverseButtons: true
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Show loading
                     Swal.fire({
                         title: 'Memproses...',
                         html: 'Sedang mencairkan dana pinjaman',

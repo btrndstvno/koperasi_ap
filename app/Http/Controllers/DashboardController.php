@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Loan;
 use App\Models\Member;
 use App\Models\Transaction;
+use App\Models\Withdrawal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -34,6 +35,7 @@ class DashboardController extends Controller
         $totalLoans = Loan::where('status', 'active')->sum('remaining_principal');
         $activeLoans = Loan::where('status', 'active')->count();
         $pendingLoansCount = Loan::where('status', 'pending')->count();
+        $pendingWithdrawalsCount = Withdrawal::where('status', 'pending')->count();
         
         $recentTransactions = Transaction::with('member')
             ->orderBy('transaction_date', 'desc')
@@ -53,6 +55,7 @@ class DashboardController extends Controller
             'totalLoans',
             'activeLoans',
             'pendingLoansCount',
+            'pendingWithdrawalsCount',
             'recentTransactions',
             'savingsByDept'
         ));

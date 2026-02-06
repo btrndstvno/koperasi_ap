@@ -47,14 +47,20 @@
                     </div>
                 </div>
                 
-                @if($loan->isPending() && Auth::user()->isAdmin())
+                @if(Auth::user()->isAdmin())
                 <div class="mt-3 pt-3 border-top">
-                    <a href="{{ route('loans.print', $loan) }}" target="_blank" class="btn btn-outline-primary me-2">
+                    <!-- Changed to Modal Trigger -->
+                    <button onclick="showPrintModal('{{ route('loans.print', $loan) }}?modal=1')" type="button" class="btn btn-outline-primary me-2">
                         <i class="bi bi-printer me-1"></i> Cetak SPJ
-                    </a>
+                    </button>
+                    
+                    @if($loan->isPending())
+                    <button type="button" class="btn btn-warning me-2 fw-medium" data-bs-toggle="modal" data-bs-target="#editModal">
+                        <i class="bi bi-pencil me-1"></i> Ubah Nominal
+                    </button>
                     <form action="{{ route('loans.approve', $loan) }}" method="POST" class="d-inline approve-form">
                         @csrf
-                        <button type="submit" class="btn btn-success">
+                        <button type="submit" class="btn btn-success fw-bold">
                             <i class="bi bi-check-circle me-1"></i> ACC / Cairkan
                         </button>
                     </form>
@@ -64,6 +70,7 @@
                             <i class="bi bi-x-circle me-1"></i> Tolak
                         </button>
                     </form>
+                    @endif
                 </div>
                 @endif
             </div>
@@ -293,6 +300,65 @@
 </div>
 @endif
 
+<!-- Modal Edit Nominal -->
+@if($loan->status === 'pending')
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('loans.update-amount', $loan) }}" method="POST">
+                @csrf
+                @method('PUT')
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Ubah Nominal Pencairan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <small class="text-muted d-block mb-1">Plafond Awal</small>
+                        <strong class="fs-5">Rp {{ number_format($loan->amount, 0, ',', '.') }}</strong>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label class="form-label form-label-required">Nominal Baru (Rp)</label>
+                        <input type="text" id="edit_input" class="form-control form-control-lg text-end" value="{{ number_format($loan->amount, 0, ',', '.') }}" required>
+                        <input type="hidden" name="amount" id="edit_amount_hidden" value="{{ $loan->amount }}">
+                        <small class="text-muted">Masukkan angka saja, titik otomatis.</small>
+                    </div>
+
+                    <!-- Live Calculation Preview -->
+                    <div class="p-3 bg-light rounded">
+                        <table class="table table-sm table-borderless mb-0 small">
+                            <tr>
+                                <td>Bunga ({{ $loan->interest_rate }}%)</td>
+                                <td class="text-end text-danger fw-bold" id="edit_calc_interest">0</td>
+                            </tr>
+                            <tr>
+                                <td>Admin (1%)</td>
+                                <td class="text-end text-danger fw-bold" id="edit_calc_admin">0</td>
+                            </tr>
+                            <tr class="border-top">
+                                <td><strong>Terima Bersih</strong></td>
+                                <td class="text-end fw-bold text-success fs-6" id="edit_calc_disburse">0</td>
+                            </tr>
+                            <tr><td colspan="2" class="pt-2"></td></tr>
+                            <tr class="table-info rounded">
+                                <td class="ps-2"><strong>Angsuran/Bln</strong></td>
+                                <td class="text-end fw-bold pe-2" id="edit_calc_installment">0</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-1"></i> Simpan Perubahan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+
 <!-- Modal Bayar -->
 @if($loan->status === 'active')
 <div class="modal fade" id="repayModal" tabindex="-1">
@@ -344,10 +410,54 @@
     </div>
 </div>
 @endif
+
+<!-- Print Modal -->
+<div class="modal fade" id="printModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-printer me-2"></i>Pratinjau Cetak SPJ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 80vh; background: #525659;"> <!-- Dark background like PDF viewer -->
+                <iframe id="printFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="btn btn-primary" onclick="printFrameContent()">
+                    <i class="bi bi-printer me-1"></i> Cetak Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
+function showPrintModal(url) {
+    const modal = new bootstrap.Modal(document.getElementById('printModal'));
+    const frame = document.getElementById('printFrame');
+    frame.src = url;
+    modal.show();
+}
+
+function printFrameContent() {
+    const frame = document.getElementById('printFrame');
+    // Call print on the iframe's window object
+    frame.contentWindow.print();
+}
+
+// Format Number Function
+const formatNumber = (num) => {
+    return num.toString().replace(/\D/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+};
+
+const unformatNumber = (str) => {
+    return parseInt(str.replace(/\./g, '')) || 0;
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     // Konfirmasi hapus transaksi dengan SweetAlert custom
     document.querySelectorAll('.delete-repayment-form').forEach(function(form) {
@@ -372,14 +482,58 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Konfirmasi ACC / Cairkan pinjaman
+    // Live Calculation for Edit Modal
+    const editInput = document.getElementById('edit_input');
+    if(editInput) {
+        const editHidden = document.getElementById('edit_amount_hidden');
+        const rate = {{ $loan->interest_rate ?? 0 }};
+        const duration = {{ $loan->duration ?? 0 }};
+        
+        const calculateEdit = () => {
+            let val = unformatNumber(editInput.value);
+            
+            // Perhitungan
+            let interest = val * (rate / 100);
+            let admin = val * 0.01;
+            let disburse = val - interest - admin;
+            let installment = val / duration;
+
+            document.getElementById('edit_calc_interest').innerText = '- Rp ' + formatNumber(Math.round(interest));
+            document.getElementById('edit_calc_admin').innerText = '- Rp ' + formatNumber(Math.round(admin));
+            document.getElementById('edit_calc_disburse').innerText = 'Rp ' + formatNumber(Math.round(disburse));
+            document.getElementById('edit_calc_installment').innerText = 'Rp ' + formatNumber(Math.round(installment));
+            
+            // Update hidden input
+            editHidden.value = val;
+        };
+
+        editInput.addEventListener('input', (e) => {
+            let formatted = formatNumber(unformatNumber(e.target.value));
+            if(e.target.value === '') formatted = '';
+            editInput.value = formatted;
+            calculateEdit();
+        });
+        
+        // Initial Calculation
+        calculateEdit();
+        
+        // Focus handler
+        const editModal = document.getElementById('editModal');
+        if(editModal) {
+            editModal.addEventListener('shown.bs.modal', function () {
+                editInput.focus();
+            });
+        }
+    }
+
+    // Konfirmasi ACC / Cairkan pinjaman (Simplified)
     document.querySelectorAll('.approve-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
             Swal.fire({
                 title: 'Cairkan Pinjaman?',
-                html: 'Dana akan dicairkan ke anggota.<br><strong>Pastikan SPJ sudah ditandatangani!</strong>',
+                html: 'Pastikan status SPJ sudah ditandatangani dan nominal sudah sesuai perjanjian.',
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#28a745',

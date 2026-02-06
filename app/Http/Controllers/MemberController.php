@@ -233,6 +233,7 @@ class MemberController extends Controller
                 'amount_interest' => 0,
                 'total_amount' => $validated['amount'],
                 'notes' => $validated['notes'] ?? 'Setoran manual',
+                'payment_method' => 'cash', // Default manual input = cash
             ]);
         });
 
@@ -265,6 +266,7 @@ class MemberController extends Controller
                 'amount_interest' => 0,
                 'total_amount' => $validated['amount'],
                 'notes' => $validated['notes'] ?? 'Penarikan simpanan',
+                'payment_method' => 'cash', // Default manual withdraw = cash
             ]);
         });
 

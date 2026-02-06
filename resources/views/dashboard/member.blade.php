@@ -42,6 +42,7 @@
                 <div>
                     <div class="stat-label">Total Simpanan Anda</div>
                     <div class="stat-value">Rp {{ number_format($member->savings_balance, 0, ',', '.') }}</div>
+                    <small class="opacity-75">tes</small>
                 </div>
                 <i class="bi bi-wallet2 stat-icon"></i>
             </div>

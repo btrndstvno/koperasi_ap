@@ -194,6 +194,18 @@
             font-size: 0.875rem;
         }
         
+        .badge-notification {
+            background-color: #ff3b30;
+            color: white;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: auto;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+        
         @media (max-width: 991.98px) {
             .sidebar {
                 margin-left: calc(-1 * var(--sidebar-width));
@@ -235,8 +247,21 @@
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('loans.*') && !request()->routeIs('loans.show') ? 'active' : '' }}" href="{{ route('loans.index') }}">
-                    <i class="bi bi-cash-stack"></i> Pinjaman
+                <a class="nav-link {{ request()->routeIs('loans.*') && !request()->routeIs('loans.show') ? 'active' : '' }} d-flex align-items-center" href="{{ route('loans.index') }}">
+                    <i class="bi bi-cash-stack"></i> 
+                    <span class="flex-grow-1">Pinjaman</span>
+                    @if(isset($globalPendingLoans) && $globalPendingLoans > 0)
+                        <span class="badge-notification">{{ $globalPendingLoans }}</span>
+                    @endif
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('withdrawals.*') ? 'active' : '' }} d-flex align-items-center" href="{{ route('withdrawals.index') }}">
+                    <i class="bi bi-wallet2"></i> 
+                    <span class="flex-grow-1">Penarikan Saldo</span>
+                    @if(isset($globalPendingWithdrawals) && $globalPendingWithdrawals > 0)
+                        <span class="badge-notification">{{ $globalPendingWithdrawals }}</span>
+                    @endif
                 </a>
             </li>
             @endif
@@ -251,6 +276,11 @@
             <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('members.my-savings') ? 'active' : '' }}" href="{{ route('members.my-savings') }}">
                     <i class="bi bi-wallet2"></i> Riwayat Pembayaran
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('withdrawals.*') ? 'active' : '' }}" href="{{ route('withdrawals.index') }}">
+                    <i class="bi bi-cash-coin"></i> Penarikan Saldo
                 </a>
             </li>
             @endif
@@ -283,11 +313,6 @@
                     <i class="bi bi-speedometer"></i> Ringkasan
                 </a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('exports.*') ? 'active' : '' }}" href="{{ route('exports.members') }}">
-                    <i class="bi bi-download"></i> Export Data
-                </a>
-            </li>
         </ul>
         @endif
     </nav>
@@ -309,7 +334,7 @@
                         <i class="bi bi-person-circle me-1"></i> {{ Auth::user()->name ?? 'Admin' }}
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i> Pengaturan</a></li>
+                        <li><a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="bi bi-gear me-2"></i> Pengaturan</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
                             <form action="{{ route('logout') }}" method="POST">

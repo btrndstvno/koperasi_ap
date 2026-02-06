@@ -9,6 +9,7 @@ use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\WithdrawalController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -46,6 +47,12 @@ Route::middleware('auth')->group(function () {
 
     // Member Savings (Riwayat Pembayaran/Tabungan)
     Route::get('/my-savings', [TransactionController::class, 'mySavings'])->name('members.my-savings');
+
+    // Withdrawals - Member can view and submit
+    Route::get('/withdrawals', [WithdrawalController::class, 'index'])->name('withdrawals.index');
+    Route::get('/withdrawals/create', [WithdrawalController::class, 'create'])->name('withdrawals.create');
+    Route::post('/withdrawals', [WithdrawalController::class, 'store'])->name('withdrawals.store');
+    Route::get('/withdrawals/{withdrawal}', [WithdrawalController::class, 'show'])->name('withdrawals.show');
 });
 
 // ============================================================
@@ -67,6 +74,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/loans/create', [LoanController::class, 'create'])->name('loans.create');
     Route::post('/loans/{loan}/repay', [LoanController::class, 'repay'])->name('loans.repay');
     Route::post('/loans/{loan}/approve', [LoanController::class, 'approve'])->name('loans.approve');
+    Route::put('/loans/{loan}/update-amount', [LoanController::class, 'updateAmount'])->name('loans.update-amount');
     Route::post('/loans/{loan}/reject', [LoanController::class, 'reject'])->name('loans.reject');
     Route::get('/loans/{loan}/print', [LoanController::class, 'print'])->name('loans.print');
 
@@ -82,4 +90,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 
     // Exports
     Route::get('/exports/members', [ExportController::class, 'members'])->name('exports.members');
+
+    // Withdrawals Admin Actions
+    Route::post('/withdrawals/{withdrawal}/approve', [WithdrawalController::class, 'approve'])->name('withdrawals.approve');
+    Route::post('/withdrawals/{withdrawal}/reject', [WithdrawalController::class, 'reject'])->name('withdrawals.reject');
+    Route::get('/withdrawals/{withdrawal}/print', [WithdrawalController::class, 'print'])->name('withdrawals.print');
 });

@@ -15,6 +15,17 @@
 </div>
 @endif
 
+<!-- Pending Withdrawals Alert -->
+@if(isset($pendingWithdrawalsCount) && $pendingWithdrawalsCount > 0)
+<div class="alert alert-warning d-flex align-items-center mb-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-3 fs-4"></i>
+    <div>
+        <strong>Perhatian!</strong> Ada <strong>{{ $pendingWithdrawalsCount }}</strong> permintaan penarikan saldo menunggu persetujuan.
+        <a href="{{ route('withdrawals.index', ['status' => 'pending']) }}" class="alert-link ms-2">Lihat Sekarang →</a>
+    </div>
+</div>
+@endif
+
 <div class="row g-4 mb-4">
     <!-- Total Anggota -->
     <div class="col-md-6 col-xl-3">
@@ -200,6 +211,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     @endif
+
+    @if($pendingWithdrawalsCount > 0)
+    // SweetAlert untuk notifikasi penarikan pending
+    Swal.fire({
+        title: 'Permintaan Penarikan Saldo!',
+        html: 'Ada <strong>{{ $pendingWithdrawalsCount }}</strong> pengajuan penarikan saldo yang menunggu persetujuan.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ffc107',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '<i class="bi bi-eye me-1"></i> Lihat Sekarang',
+        cancelButtonText: 'Nanti Saja',
+        confirmButtonTextColor: '#000',
+        showClass: {
+            popup: 'animate__animated animate__fadeInDown'
+        },
+        hideClass: {
+            popup: 'animate__animated animate__fadeOutUp'
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '{{ route("withdrawals.index", ["status" => "pending"]) }}';
+        }
+    });
+    @endif
+});
+</script>
 });
 </script>
 @endpush

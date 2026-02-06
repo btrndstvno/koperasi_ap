@@ -63,7 +63,7 @@
                 </form>
             </div>
             <div class="card-footer text-center py-3 bg-white">
-                <small class="text-muted">&copy; {{ date('Y') }} Koperasi Artha Prima</small>
+                <small class="text-muted">&copy; {{ date('Y') }} Koperasi  Karyawan PT Adipturo Wirasejati</small>
             </div>
         </div>
     </div>
