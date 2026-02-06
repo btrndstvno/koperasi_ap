@@ -37,7 +37,7 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
             $rows->push([ 
                 $index + 1,
                 $member->nik,
-                $member->name . "\n" . ($member->csd ?? ''),
+                $member->name,
                 $member->dept,
                 $member->pot_kop,
                 $member->iur_kop,
@@ -45,6 +45,7 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
                 $member->total,
                 $member->sisa_pinjaman . "\n" . ($member->sisa_tenor > 0 ? "({$member->sisa_tenor}x)" : ''),
                 $member->saldo_kop,
+                $member->csd ?? '',
                 ''
             ]);
         }
@@ -72,7 +73,7 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
         return [
             'NO',
             'NIK',
-            'NAMA / CSD',
+            'NAMA',
             'DEPT',
             'POT KOP',
             'IUR KOP',
@@ -80,6 +81,7 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
             'JUMLAH',
             'SISA PINJAMAN',
             'SALDO KOP',
+            'CSD',
             'KET'
         ];
     }
