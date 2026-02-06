@@ -7,6 +7,7 @@ use App\Models\Member;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class TransactionController extends Controller
 {
@@ -22,16 +23,6 @@ class TransactionController extends Controller
 
         $member = $user->member;
         
-        // Get transactions related to savings (deposits, withdrawals, etc)
-        // Or all transactions? User asked for "History Pembayaran" but also "nabung".
-        // Let's show all transaction history but focused on savings balance changes.
-        
-        // Type of transactions that affect savings:
-        // - PRINCIPAL_SAVING, MANDATORY_SAVING, VOLUNTARY_SAVING
-        // - WITHDRAWAL
-        // - INTEREST_REVENUE (if credited to savings? usually not)
-        // - LOAN_DISBURSEMENT (no)
-        // - LOAN_REPAYMENT (usually cash, but maybe deduction from saving?)
         
         // For now, let's just get ALL transactions for this member
         $transactions = Transaction::where('member_id', $member->id)
@@ -149,6 +140,18 @@ class TransactionController extends Controller
         ]);
 
         $transactionDate = $validated['transaction_date'];
+        
+        // Check if bulk input already exists for this month (indicated by payroll_deduction)
+        $dateObj = Carbon::parse($transactionDate);
+        $exists = Transaction::whereYear('transaction_date', $dateObj->year)
+            ->whereMonth('transaction_date', $dateObj->month)
+            ->where('payment_method', 'payroll_deduction')
+            ->exists();
+
+        if ($exists) {
+            return back()->with('error', 'Input Massal untuk bulan ' . $dateObj->translatedFormat('F Y') . ' sudah pernah dilakukan! Mohon periksa Laporan Transaksi.');
+        }
+
         $results = [
             'processed' => 0,
             'skipped' => 0,
