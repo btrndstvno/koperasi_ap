@@ -129,9 +129,14 @@ class MemberController extends Controller
 
         $activeLoan = $member->activeLoans()->first();
         
-        // Mutasi Simpanan
+        // Mutasi Simpanan (+ Bunga & SHU)
         $savingTransactions = $member->transactions()
-            ->whereIn('type', [Transaction::TYPE_SAVING_DEPOSIT, Transaction::TYPE_SAVING_WITHDRAW])
+            ->whereIn('type', [
+                Transaction::TYPE_SAVING_DEPOSIT, 
+                Transaction::TYPE_SAVING_WITHDRAW, 
+                Transaction::TYPE_SAVING_INTEREST, 
+                Transaction::TYPE_SHU_REWARD
+            ])
             ->orderByDesc('transaction_date')
             ->get();
 

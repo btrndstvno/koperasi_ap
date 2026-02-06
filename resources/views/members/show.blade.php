@@ -217,7 +217,7 @@
                                     {{ $trx->notes }}
                                 </td>
                                 <td class="text-end">
-                                    @if($trx->type === 'saving_deposit')
+                                    @if(in_array($trx->type, ['saving_deposit', 'saving_interest', 'shu_reward']))
                                         <span class="text-success">+ Rp {{ number_format($trx->amount_saving, 0, ',', '.') }}</span>
                                     @endif
                                 </td>
