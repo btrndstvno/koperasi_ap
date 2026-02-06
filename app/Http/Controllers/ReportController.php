@@ -141,9 +141,15 @@ class ReportController extends Controller
                 ->sum('total_amount');
 
             // ========== SALDO HISTORIS (Snapshot s/d akhir bulan) ==========
-            // Sum semua deposit - sum semua withdraw sampai akhir bulan
+            // Sum semua deposit (Simpanan, Bunga Simpanan, SHU) - sum semua withdraw sampai akhir bulan
+            $depositTypes = [
+                Transaction::TYPE_SAVING_DEPOSIT,
+                Transaction::TYPE_SAVING_INTEREST,
+                Transaction::TYPE_SHU_REWARD
+            ];
+            
             $historicalDeposits = $member->transactions
-                ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                ->whereIn('type', $depositTypes)
                 // Filter hanya simpanan yang sudah terjadi s/d akhir bulan laporan
                 ->where('transaction_date', '<=', $endOfMonth)
                 ->sum('total_amount');

@@ -336,4 +336,5 @@ class TransactionController extends Controller
             return back()->with('error', 'Gagal menghapus transaksi: ' . $e->getMessage());
         }
     }
+    
 }

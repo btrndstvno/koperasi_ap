@@ -5,9 +5,9 @@ namespace Database\Seeders;
 use App\Models\Loan;
 use App\Models\Member;
 use App\Models\Transaction;
-use App\Models\User; // <--- Jangan lupa import ini
+use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash; // <--- Import Hash
+use Illuminate\Support\Facades\Hash;
 use Carbon\Carbon;
 
 class KoperasiSeeder extends Seeder
@@ -22,49 +22,85 @@ class KoperasiSeeder extends Seeder
         $nikCounter = 1001;
 
         foreach ($departments as $dept) {
-            $count = rand(5, 10); // Kurangi dikit biar gak kebanyakan nunggu
+            $count = rand(5, 8); // Jumlah member per dept
             $groupTags = ['Manager', 'Bangunan', 'CSD', 'Office'];
             
             for ($i = 0; $i < $count; $i++) {
                 $nik = 'EMP' . str_pad($nikCounter++, 4, '0', STR_PAD_LEFT);
-                $email = strtolower($nik) . '@koperasi.com'; // Email dari NIK
+                $email = strtolower($nik) . '@koperasi.com';
                 $name = fake()->name();
 
                 // A. Buat Data Member
                 $member = Member::create([
                     'nik' => $nik,
                     'name' => $name,
-                    'email' => $email, // Isi kolom email di table member
+                    'email' => $email,
                     'group_tag' => fake()->randomElement($groupTags),
                     'csd' => fake()->randomElement(['CSD-A', 'CSD-B', 'CSD-C', null]),
                     'dept' => $dept,
                     'employee_status' => fake()->randomElement(['monthly', 'monthly', 'monthly', 'weekly']), 
-                    'savings_balance' => fake()->randomFloat(2, 100000, 2000000),
+                    'savings_balance' => 0, // Nanti diupdate otomatis dari transaksi
                 ]);
 
-                // B. Buat Akun Login (User) untuk Member ini
-                User::create([
-                    'name' => $name,
-                    'email' => $email,
-                    'password' => Hash::make('password'), // Password default: 'password'
-                    'role' => 'member',
-                    'member_id' => $member->id,
-                ]);
+                // B. Buat Akun Login
+                User::firstOrCreate(
+                    ['email' => $email],
+                    [
+                        'name' => $name,
+                        'password' => Hash::make('password'),
+                        'role' => 'member',
+                        'member_id' => $member->id,
+                    ]
+                );
 
                 $members[] = $member;
             }
         }
 
-        $this->command->info('Created ' . count($members) . ' members with login accounts.');
+        $this->command->info('Created ' . count($members) . ' members.');
 
-        // 2. SEED LOANS (Sama seperti sebelumnya)
+        // 2. SEED SAVINGS (Generating 6 Months History)
+        // Ini kuncinya: Kita buat transaksi rutin mundur 6 bulan ke belakang
+        $this->command->info('Seeding Historical Savings (6 Months)...');
+        
+        foreach ($members as $member) {
+            $totalSavings = 0;
+            
+            // Loop dari 6 bulan lalu sampai bulan ini (0)
+            for ($i = 6; $i >= 0; $i--) {
+                $trxDate = Carbon::now()->subMonths($i)->startOfMonth(); // Tgl 1 setiap bulan
+                $amount = 20000; // Simpanan Wajib 20rb/bulan
+
+                Transaction::create([
+                    'member_id' => $member->id,
+                    'transaction_date' => $trxDate,
+                    'type' => 'saving_deposit',
+                    'amount_saving' => $amount,
+                    'amount_principal' => 0,
+                    'amount_interest' => 0, 
+                    'total_amount' => $amount,
+                    'payment_method' => 'salary_deduction',
+                    'notes' => 'Simpanan Wajib ' . $trxDate->format('M Y'),
+                ]);
+
+                $totalSavings += $amount;
+            }
+            
+            // Update saldo terakhir di tabel member
+            $member->update(['savings_balance' => $totalSavings]);
+        }
+
+        // 3. SEED LOANS (Pinjaman)
         $this->command->info('Seeding Loans...');
-        $membersWithLoans = collect($members)->random(intval(count($members) * 0.4));
+        $membersWithLoans = collect($members)->random(intval(count($members) * 0.3));
         
         foreach ($membersWithLoans as $member) {
-            $amount = fake()->randomElement([1000000, 2000000, 3000000]);
-            $duration = 10; // Fix 10 bulan biar gampang cek report
-            $paidMonths = fake()->numberBetween(0, 5);
+            $amount = fake()->randomElement([1000000, 2000000, 5000000]);
+            $duration = 10;
+            
+            // Anggaplah pinjaman ini dibuat 3 bulan yang lalu
+            $loanStartDate = Carbon::now()->subMonths(3)->startOfMonth();
+            $paidMonths = 3; // Sudah bayar 3x
             
             $monthlyPrincipal = $amount / $duration;
             $remainingPrincipal = $amount - ($monthlyPrincipal * $paidMonths);
@@ -76,51 +112,40 @@ class KoperasiSeeder extends Seeder
                 'duration' => $duration,
                 'monthly_installment' => $monthlyPrincipal,
                 'remaining_principal' => max(0, $remainingPrincipal),
-                'status' => $remainingPrincipal > 0 ? 'active' : 'paid',
+                'status' => 'active',
+                'created_at' => $loanStartDate, // Penting untuk laporan historis
             ]);
 
-            for ($month = 1; $month <= $paidMonths; $month++) {
-                $transactionDate = Carbon::now()->subMonths($paidMonths - $month + 1)->startOfMonth();
+            // Buat transaksi bayar cicilan 3 bulan terakhir
+            for ($m = 0; $m < $paidMonths; $m++) {
+                $payDate = $loanStartDate->copy()->addMonths($m + 1); // Bayar bulan depannya
+                
                 Transaction::create([
                     'member_id' => $member->id,
                     'loan_id' => $loan->id,
-                    'transaction_date' => $transactionDate,
+                    'transaction_date' => $payDate,
                     'type' => 'loan_repayment',
                     'amount_saving' => 0,
                     'amount_principal' => $monthlyPrincipal,
-                    'amount_interest' => 0, 
+                    'amount_interest' => 0,
                     'total_amount' => $monthlyPrincipal,
                     'payment_method' => 'salary_deduction',
-                    'notes' => 'Angsuran bulan ke-' . $month,
+                    'notes' => 'Angsuran ke-' . ($m + 1),
                 ]);
             }
         }
-
-        // 3. SEED SAVINGS (Sama seperti sebelumnya)
-        $this->command->info('Seeding Saving Transactions...');
-        foreach ($members as $member) {
-            Transaction::create([
-                'member_id' => $member->id,
-                'transaction_date' => Carbon::now()->subMonth(),
-                'type' => 'saving_deposit',
-                'amount_saving' => 10000,
-                'amount_principal' => 0,
-                'amount_interest' => 0,
-                'total_amount' => 10000,
-                'payment_method' => 'salary_deduction',
-                'notes' => 'Iuran Wajib',
-            ]);
-        }
         
-        // 4. Create ADMIN Account
-        User::firstOrCreate([
-            'name' => 'Admin Koperasi',
-            'email' => 'admin@koperasi.com',
-            'password' => Hash::make('password'),
-            'role' => 'admin',
-            'member_id' => null,
-        ]);
+        // 4. Create ADMIN
+        User::firstOrCreate(
+            ['email' => 'admin@koperasi.com'],
+            [
+                'name' => 'Admin Koperasi',
+                'password' => Hash::make('password'),
+                'role' => 'admin',
+                'member_id' => null,
+            ]
+        );
         
-        $this->command->info('ALL DONE! Admin: admin@koperasi.com | Member: emp1001@koperasi.com (Pass: password)');
+        $this->command->info('Seeding Completed!');
     }
 }
