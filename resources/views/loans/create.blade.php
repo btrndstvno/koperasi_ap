@@ -48,6 +48,17 @@
 
                     <div class="row mb-3">
                         <div class="col-md-6">
+                            <label class="form-label form-label-required">Tanggal Pengajuan</label>
+                            <input type="date" name="application_date" class="form-control @error('application_date') is-invalid @enderror" 
+                                   value="{{ old('application_date', date('Y-m-d')) }}" required>
+                            @error('application_date')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
                             <label class="form-label form-label-required">Pokok Pinjaman</label>
                             <div class="input-group">
                                 <span class="input-group-text">Rp</span>

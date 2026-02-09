@@ -94,6 +94,7 @@ class LoanController extends Controller
             'amount' => 'required|numeric|min:100000',
             'interest_rate' => 'required|numeric|min:0|max:10',
             'duration' => 'required|integer|min:1|max:60',
+            'application_date' => 'required|date',
         ]);
 
         // Check member punya pinjaman aktif ga
@@ -138,6 +139,7 @@ class LoanController extends Controller
                 'admin_fee' => $adminFee,
                 'disbursed_amount' => $uangCair,
                 'status' => Loan::STATUS_PENDING, // Status PENDING
+                'application_date' => $validated['application_date'],
             ]);
         });
 
@@ -199,18 +201,26 @@ class LoanController extends Controller
             return back()->with('error', 'Pinjaman ini tidak dalam status pending.');
         }
 
-        DB::transaction(function () use ($loan) {
+        $validated = $request->validate([
+            'approved_date' => 'required|date',
+        ]);
+        $approvedDate = $validated['approved_date'];
+
+        DB::transaction(function () use ($loan, $approvedDate) {
             $member = $loan->member;
 
-            // Update status menjadi active
-            $loan->update(['status' => Loan::STATUS_ACTIVE]);
+            // Update status menjadi active dan tanggal approved
+            $loan->update([
+                'status' => Loan::STATUS_ACTIVE,
+                'approved_date' => $approvedDate,
+            ]);
 
             // Buat transaksi: Bunga sebagai pendapatan koperasi
             if ($loan->total_interest > 0) {
                 Transaction::create([
                     'member_id' => $member->id,
                     'loan_id' => $loan->id,
-                    'transaction_date' => now()->toDateString(),
+                    'transaction_date' => $approvedDate,
                     'type' => Transaction::TYPE_INTEREST_REVENUE,
                     'amount_saving' => 0,
                     'amount_principal' => 0,
@@ -226,7 +236,7 @@ class LoanController extends Controller
                 Transaction::create([
                     'member_id' => $member->id,
                     'loan_id' => $loan->id,
-                    'transaction_date' => now()->toDateString(),
+                    'transaction_date' => $approvedDate,
                     'type' => Transaction::TYPE_ADMIN_FEE,
                     'amount_saving' => 0,
                     'amount_principal' => 0,
@@ -241,7 +251,7 @@ class LoanController extends Controller
             Transaction::create([
                 'member_id' => $member->id,
                 'loan_id' => $loan->id,
-                'transaction_date' => now()->toDateString(),
+                'transaction_date' => $approvedDate,
                 'type' => Transaction::TYPE_LOAN_DISBURSEMENT,
                 'amount_saving' => 0,
                 'amount_principal' => $loan->disbursed_amount,

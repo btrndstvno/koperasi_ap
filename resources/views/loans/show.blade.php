@@ -58,12 +58,9 @@
                     <button type="button" class="btn btn-warning me-2 fw-medium" data-bs-toggle="modal" data-bs-target="#editModal">
                         <i class="bi bi-pencil me-1"></i> Ubah Nominal
                     </button>
-                    <form action="{{ route('loans.approve', $loan) }}" method="POST" class="d-inline approve-form">
-                        @csrf
-                        <button type="submit" class="btn btn-success fw-bold">
-                            <i class="bi bi-check-circle me-1"></i> ACC / Cairkan
-                        </button>
-                    </form>
+                    <button type="button" class="btn btn-success fw-bold" data-bs-toggle="modal" data-bs-target="#approveModal">
+                        <i class="bi bi-check-circle me-1"></i> ACC / Cairkan
+                    </button>
                     <form action="{{ route('loans.reject', $loan) }}" method="POST" class="d-inline reject-form ms-2">
                         @csrf
                         <button type="submit" class="btn btn-outline-danger">
@@ -403,6 +400,44 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-check me-1"></i> Bayar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endif
+
+<!-- Modal Approve -->
+@if($loan->isPending())
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('loans.approve', $loan) }}" method="POST">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-check-circle me-2"></i>Persetujuan Pencairan Dana</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Pastikan SPJ sudah ditandatangani dan nominal sudah sesuai perjanjian.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Uang yang akan dicairkan</label>
+                        <h3 class="text-success">Rp {{ number_format($loan->disbursed_amount, 0, ',', '.') }}</h3>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-label-required">Tanggal Pencairan</label>
+                        <input type="date" name="approved_date" class="form-control" value="{{ date('Y-m-d') }}" required>
+                        <small class="text-muted">Tanggal ini akan dicatat sebagai tanggal mulai pinjaman.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i> Cairkan Sekarang
                     </button>
                 </div>
             </form>

@@ -27,17 +27,5 @@ class DatabaseSeeder extends Seeder
         $this->call([
             KoperasiSeeder::class,
         ]);
-
-        // Create Member User (link to first member)
-        $firstMember = Member::first();
-        if ($firstMember) {
-            User::create([
-                'name' => $firstMember->name,
-                'email' => 'member1@koperasi.com',
-                'password' => Hash::make('11111111'),
-                'role' => 'member',
-                'member_id' => $firstMember->id,
-            ]);
-        }
     }
 }

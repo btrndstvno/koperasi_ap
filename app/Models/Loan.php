@@ -27,6 +27,8 @@ class Loan extends Model
         'admin_fee',
         'disbursed_amount',
         'status',
+        'application_date',
+        'approved_date',
     ];
 
     /**
@@ -44,6 +46,8 @@ class Loan extends Model
         'admin_fee' => 'decimal:2',
         'disbursed_amount' => 'decimal:2',
         'status' => 'string',
+        'application_date' => 'date',
+        'approved_date' => 'date',
     ];
 
     /**

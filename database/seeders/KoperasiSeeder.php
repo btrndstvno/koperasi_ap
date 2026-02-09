@@ -27,31 +27,18 @@ class KoperasiSeeder extends Seeder
             
             for ($i = 0; $i < $count; $i++) {
                 $nik = 'EMP' . str_pad($nikCounter++, 4, '0', STR_PAD_LEFT);
-                $email = strtolower($nik) . '@koperasi.com';
                 $name = fake()->name();
 
                 // A. Buat Data Member
                 $member = Member::create([
                     'nik' => $nik,
                     'name' => $name,
-                    'email' => $email,
                     'group_tag' => fake()->randomElement($groupTags),
                     'csd' => fake()->randomElement(['CSD-A', 'CSD-B', 'CSD-C', null]),
                     'dept' => $dept,
                     'employee_status' => fake()->randomElement(['monthly', 'monthly', 'monthly', 'weekly']), 
                     'savings_balance' => 0, // Nanti diupdate otomatis dari transaksi
                 ]);
-
-                // B. Buat Akun Login
-                User::firstOrCreate(
-                    ['email' => $email],
-                    [
-                        'name' => $name,
-                        'password' => Hash::make('password'),
-                        'role' => 'member',
-                        'member_id' => $member->id,
-                    ]
-                );
 
                 $members[] = $member;
             }
