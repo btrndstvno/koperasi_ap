@@ -76,7 +76,7 @@
             <div class="d-flex justify-content-between align-items-center">
                 <div>
                     <div class="stat-value">Rp {{ number_format(($cashFlow->grand_total ?? 0), 0, ',', '.') }}</div>
-                    <div class="stat-label">Cash Flow ({{ \Carbon\Carbon::create()->month($month)->translatedFormat('F') }})</div>
+                    <div class="stat-label">Cash Flow ({{ \Carbon\Carbon::create()->month((int)$month)->translatedFormat('F') }})</div>
                 </div>
                 <div class="stat-icon"><i class="bi bi-graph-up-arrow"></i></div>
             </div>
@@ -154,7 +154,7 @@
 
 <div class="card">
     <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
-        <h6 class="mb-0 fw-bold"><i class="bi bi-clock-history me-2"></i>Riwayat Transaksi Terbaru ({{ \Carbon\Carbon::create()->month($month)->translatedFormat('F') }})</h6>
+        <h6 class="mb-0 fw-bold"><i class="bi bi-clock-history me-2"></i>Riwayat Transaksi Terbaru ({{ \Carbon\Carbon::create()->month((int)$month)->translatedFormat('F') }})</h6>
     </div>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">

@@ -134,11 +134,13 @@
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                 @endif
-                                @if($withdrawal->status === 'approved')
-                                    <a href="{{ route('withdrawals.print', $withdrawal) }}?modal=1" class="btn btn-sm btn-outline-info" title="Cetak" target="_blank">
+                                @if(Auth::user()->isAdmin()) <!-- Allow print for any status (Draft or Approved) -->
+                                    <button type="button" class="btn btn-sm btn-outline-info" title="Cetak Formulir"
+                                        onclick="loadPrintPreview('{{ route('withdrawals.print', $withdrawal) }}?modal=1')">
                                         <i class="bi bi-printer"></i>
-                                    </a>
+                                    </button>
                                 @endif
+                                
                             </div>
                         </td>
                     </tr>
@@ -196,10 +198,39 @@
 </form>
 @endforeach
 
+<!-- Print Preview Modal -->
+<div class="modal fade" id="printPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content" style="height: 90vh;">
+            <div class="modal-header">
+                <h5 class="modal-title">Pratinjau Cetak Formulir</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <iframe id="printFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('printFrame').contentWindow.print()">
+                    <i class="bi bi-printer me-1"></i> Cetak Sekarang
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
 <script>
+function loadPrintPreview(url) {
+    const frame = document.getElementById('printFrame');
+    // Set src
+    frame.src = url;
+    // Show modal
+    new bootstrap.Modal(document.getElementById('printPreviewModal')).show();
+}
+
 function confirmApprove(id, name, amount) {
     const formattedAmount = new Intl.NumberFormat('id-ID').format(amount);
     Swal.fire({
