@@ -16,10 +16,9 @@
                 @if(count($validSheets) === 0)
                     <div class="alert alert-warning">
                         <i class="bi bi-exclamation-triangle me-2"></i>
-                        <strong>Tidak ada sheet yang valid!</strong>
+                        <strong>Tidak ada sheet yang ditemukan!</strong>
                         <p class="mb-0 mt-2">
-                            Tidak ditemukan sheet dengan format nama "MM YYYY" (contoh: "05 2025").
-                            <br>Pastikan nama sheet sesuai format yang diharapkan.
+                            File Excel tidak memiliki sheet yang dapat diimport.
                         </p>
                     </div>
                     
@@ -44,7 +43,7 @@
                                                 <input type="checkbox" id="selectAll" checked>
                                             </th>
                                             <th>Nama Sheet</th>
-                                            <th>Tanggal Transaksi</th>
+                                            <th>Keterangan</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -54,7 +53,7 @@
                                                 <input type="checkbox" name="sheets[]" value="{{ $sheet['name'] }}" class="sheet-checkbox" checked>
                                             </td>
                                             <td><code>{{ $sheet['name'] }}</code></td>
-                                            <td>{{ \Carbon\Carbon::parse($sheet['parsed_date'])->translatedFormat('d F Y') }}</td>
+                                            <td><span class="text-muted fst-italic">{{ $sheet['parsed_date'] }}</span></td>
                                         </tr>
                                         @endforeach
                                     </tbody>

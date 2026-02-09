@@ -63,12 +63,18 @@ class TransactionController extends Controller
         ->map(function ($member) use ($targetDate, $targetMonthStart) {
             // Find loan that is active in the selected period
             $activeLoanInPeriod = $member->loans->filter(function($loan) use ($targetDate) {
-                 $start = \Carbon\Carbon::parse($loan->created_at)->startOfMonth();
+                 // Use approved_date if available (preferred), otherwise date created
+                 $baseDate = $loan->approved_date 
+                    ? \Carbon\Carbon::parse($loan->approved_date) 
+                    : \Carbon\Carbon::parse($loan->created_at);
+                 
+                 // START DEDUCTION: Next Month after approval (Bulan depan mulai potong)
+                 $start = $baseDate->copy()->addMonth()->startOfMonth();
+
                  // Estimated end date
                  $end = $start->copy()->addMonths($loan->duration - 1)->endOfMonth();
                  
                  // Loan is candidate if target date is within range
-                 // AND loan was created before or inside target month
                  return $targetDate->between($start, $end);
             })->first();
 
@@ -123,6 +129,28 @@ class TransactionController extends Controller
                 ->sum('total_amount');
 
             $saldoHistoris = $histDeposits - $histWithdraws;
+
+            // Logic Iuran Wajib Otomatis (Recurring)
+            // 1. Ambil transaksi iuran (deduction) terakhir
+            $lastDeduction = $member->transactions
+                ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                ->where('payment_method', 'deduction')
+                ->sortByDesc('transaction_date')
+                ->first();
+            
+            $iur_kop_val = 0;
+            if ($lastDeduction) {
+                $iur_kop_val = $lastDeduction->total_amount;
+            } else {
+                // 2. Jika belum ada, ambil setoran awal (transaksi simpanan pertama)
+                $firstDeposit = $member->transactions
+                    ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                    ->sortBy('transaction_date')
+                    ->first();
+                if ($firstDeposit) {
+                    $iur_kop_val = $firstDeposit->total_amount;
+                }
+            }
             
             return (object) [
                 'id' => $member->id,
@@ -138,7 +166,7 @@ class TransactionController extends Controller
                 'remaining_principal' => (float) $sisa_pinjaman,
                 'remaining_installments' => $remaining_installments,
                 'pot_kop' => (float) $pot_kop,
-                'iur_kop' => 0, 
+                'iur_kop' => (float) $iur_kop_val, 
                 'iur_tunai' => 0,
             ];
         })

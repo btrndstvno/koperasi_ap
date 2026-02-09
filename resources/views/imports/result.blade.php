@@ -14,7 +14,7 @@
                 <i class="bi bi-check-circle me-2"></i>Import Selesai
             </div>
             <div class="card-body">
-                <div class="row text-center">
+                <div class="row text-center mb-3">
                     <div class="col-md-4">
                         <div class="border rounded p-3">
                             <h2 class="text-primary mb-0">{{ $results['summary']['total_rows'] }}</h2>
@@ -31,6 +31,26 @@
                         <div class="border rounded p-3">
                             <h2 class="text-warning mb-0">{{ $results['summary']['skipped'] }}</h2>
                             <small class="text-muted">Dilewati</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 bg-light">
+                            <h4 class="text-info mb-0">{{ $results['summary']['members_created'] ?? 0 }}</h4>
+                            <small class="text-muted">Member Baru</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 bg-light">
+                            <h4 class="text-secondary mb-0">{{ $results['summary']['members_updated'] ?? 0 }}</h4>
+                            <small class="text-muted">Member Diperbarui</small>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="border rounded p-3 bg-light">
+                            <h4 class="text-primary mb-0">{{ $results['summary']['loans_created'] ?? 0 }}</h4>
+                            <small class="text-muted">Pinjaman Dibuat</small>
                         </div>
                     </div>
                 </div>

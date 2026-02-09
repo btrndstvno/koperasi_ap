@@ -384,7 +384,7 @@ class ReportController extends Controller
                 'name' => $member->name,
                 'group_tag' => $member->group_tag ?? 'Office',
                 'dept' => $member->dept,
-                'csd' => $member->group_tag ?? '-', // Updated: CSD reflects Group Tag
+                'csd' => $member->group_tag ?? '-',
                 'pot_kop' => $pot_kop,
                 'iur_kop' => $iur_kop,
                 'iur_tunai' => $iur_tunai,
@@ -394,6 +394,7 @@ class ReportController extends Controller
                 'sisa_pinjaman' => $sisaPinjamanHistoris,
                 'sisa_tenor' => $sisaTenorHistoris,
                 'saldo_kop' => $saldoHistoris,
+                'member_status' => $member->employee_status === 'monthly' ? 'Bulanan' : 'Mingguan',
             ];
         })->sortBy('nik_numeric');
 

@@ -88,6 +88,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');
     Route::post('/imports/preview', [ImportController::class, 'preview'])->name('imports.preview');
     Route::post('/imports/process', [ImportController::class, 'process'])->name('imports.process');
+    Route::post('/imports/direct', [ImportController::class, 'direct'])->name('imports.direct');
 
     // Exports
     Route::get('/exports/members', [ExportController::class, 'members'])->name('exports.members');

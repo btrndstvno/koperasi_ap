@@ -45,7 +45,7 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
                 $member->total,
                 $member->sisa_pinjaman . "\n" . ($member->sisa_tenor > 0 ? "({$member->sisa_tenor}x)" : ''),
                 $member->saldo_kop,
-                $member->group_tag ?? '',
+                $member->member_status ?? '',
                 ''
             ]);
         }
@@ -81,7 +81,7 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
             'JUMLAH',
             'SISA PINJAMAN',
             'SALDO KOP',
-            'CSD',
+            'STATUS',
             'KET'
         ];
     }

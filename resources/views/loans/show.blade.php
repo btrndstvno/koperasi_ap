@@ -227,11 +227,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-clock-history me-2"></i>Riwayat Pembayaran</span>
-        @if($loan->status === 'active' && Auth::user()->isAdmin())
+        <!-- @if($loan->status === 'active' && Auth::user()->isAdmin())
         <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#repayModal">
             <i class="bi bi-cash me-1"></i> Bayar Angsuran
         </button>
-        @endif
+        @endif -->
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -356,7 +356,7 @@
 </div>
 @endif
 
-<!-- Modal Bayar -->
+<!-- Modal Bayar
 @if($loan->status === 'active')
 <div class="modal fade" id="repayModal" tabindex="-1">
     <div class="modal-dialog">
@@ -406,7 +406,7 @@
         </div>
     </div>
 </div>
-@endif
+@endif -->
 
 <!-- Modal Approve -->
 @if($loan->isPending())

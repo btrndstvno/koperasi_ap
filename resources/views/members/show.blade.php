@@ -43,9 +43,9 @@
             </div>
             <div class="col-auto">
                 <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSavingModal">
+                    <!-- <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSavingModal">
                         <i class="bi bi-plus-circle me-1"></i> Tambah Simpanan
-                    </button>
+                    </button> -->
                     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#withdrawSavingModal">
                         <i class="bi bi-dash-circle me-1"></i> Tarik Simpanan
                     </button>
@@ -256,7 +256,7 @@
     </div>
 </div>
 
-<!-- Modal Tambah Simpanan -->
+<!-- Modal Tambah Simpanan
 <div class="modal fade" id="addSavingModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -292,7 +292,7 @@
             </form>
         </div>
     </div>
-</div>
+</div> -->
 
 <!-- Modal Tarik Simpanan -->
 <div class="modal fade" id="withdrawSavingModal" tabindex="-1">

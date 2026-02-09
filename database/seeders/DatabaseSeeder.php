@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Member;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -21,11 +20,6 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('12341234'),
             'role' => 'admin',
             'member_id' => null,
-        ]);
-
-        // Seed Koperasi Data (Members, Loans, Transactions)
-        $this->call([
-            KoperasiSeeder::class,
         ]);
     }
 }

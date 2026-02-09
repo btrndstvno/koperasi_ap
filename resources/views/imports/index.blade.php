@@ -15,14 +15,15 @@
                     <h6><i class="bi bi-info-circle me-2"></i>Petunjuk Import</h6>
                     <ul class="mb-0">
                         <li>File Excel harus berformat <strong>.xlsx</strong> atau <strong>.xls</strong></li>
-                        <li>Nama sheet harus berformat <strong>"MM YYYY"</strong> (contoh: "05 2025", "12 2024")</li>
-                        <li>Sheet dengan nama lain akan otomatis dilewati</li>
-                        <li>Kolom yang diperlukan: <code>NIK</code>, <code>IUR_KOP</code> (simpanan), <code>POT_KOP</code> (potongan pinjaman)</li>
-                        <li>NIK yang tidak ditemukan di database akan dilewati</li>
+                        <li>Baris pertama file harus berisi <strong>tanggal transaksi</strong> (contoh: "31 JANUARI 2026")</li>
+                        <li>Data dikelompokkan berdasarkan section: <strong>MANAGER, BANGUNAN, CSD, OFFICE/KARYAWAN</strong></li>
+                        <li>Kolom yang diperlukan: <code>NIK</code>, <code>NAMA</code>, <code>DEPT</code>, <code>POT KOP</code>, <code>IUR KOP</code>, <code>SALDO</code></li>
+                        <li>Member baru akan otomatis dibuat jika NIK tidak ditemukan</li>
+                        <li>Pinjaman akan dihitung otomatis dari kolom <code>SISA CICILAN</code> (peraturan: 10 bulan)</li>
                     </ul>
                 </div>
 
-                <form action="{{ route('imports.preview') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('imports.direct') }}" method="POST" enctype="multipart/form-data" id="importForm">
                     @csrf
                     
                     <div class="mb-4">
@@ -35,9 +36,12 @@
                         <small class="text-muted">Maksimal 10MB</small>
                     </div>
 
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary btn-lg">
-                            <i class="bi bi-eye me-2"></i>Preview & Validasi
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="bi bi-cloud-upload me-2"></i>Import Langsung
+                        </button>
+                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('importForm').action='{{ route('imports.preview') }}'; document.getElementById('importForm').submit();">
+                            <i class="bi bi-eye me-2"></i>Preview Dulu
                         </button>
                     </div>
                 </form>

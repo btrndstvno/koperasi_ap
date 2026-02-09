@@ -11,12 +11,6 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 class ImportController extends Controller
 {
     /**
-     * Regex pattern untuk validasi nama sheet format "MM YYYY" atau "M YYYY"
-     * Contoh valid: "05 2025", "12 2024", "1 2025"
-     */
-    const SHEET_NAME_PATTERN = '/^\d{1,2}\s\d{4}$/';
-
-    /**
      * Tampilkan halaman import
      */
     public function index()
@@ -40,19 +34,14 @@ class ImportController extends Controller
             $spreadsheet = IOFactory::load($file->getPathname());
             $allSheets = $spreadsheet->getSheetNames();
             
-            // Filter sheet berdasarkan regex
+            // Tampilkan semua sheet - tanggal akan dideteksi dari isi file
             $validSheets = [];
-            $skippedSheets = [];
             
             foreach ($allSheets as $sheetName) {
-                if (preg_match(self::SHEET_NAME_PATTERN, trim($sheetName))) {
-                    $validSheets[] = [
-                        'name' => $sheetName,
-                        'parsed_date' => $this->parseSheetNameToDate($sheetName),
-                    ];
-                } else {
-                    $skippedSheets[] = $sheetName;
-                }
+                $validSheets[] = [
+                    'name' => $sheetName,
+                    'parsed_date' => 'Akan dideteksi dari isi file',
+                ];
             }
 
             // Simpan file sementara untuk proses import
@@ -60,7 +49,7 @@ class ImportController extends Controller
 
             return view('imports.preview', [
                 'validSheets' => $validSheets,
-                'skippedSheets' => $skippedSheets,
+                'skippedSheets' => [],
                 'tempPath' => $tempPath,
                 'originalName' => $file->getClientOriginalName(),
             ]);
@@ -99,17 +88,14 @@ class ImportController extends Controller
                 'total_rows' => 0,
                 'imported' => 0,
                 'skipped' => 0,
+                'members_created' => 0,
+                'members_updated' => 0,
+                'loans_created' => 0,
             ]
         ];
 
         try {
             foreach ($request->sheets as $sheetName) {
-                // Validasi ulang nama sheet dengan regex
-                if (!preg_match(self::SHEET_NAME_PATTERN, trim($sheetName))) {
-                    $results['errors'][] = "Sheet '{$sheetName}' tidak sesuai format dan dilewati.";
-                    continue;
-                }
-
                 try {
                     $import = new MonthlyTransactionImport($sheetName);
                     
@@ -123,12 +109,18 @@ class ImportController extends Controller
                         'sheet' => $sheetName,
                         'imported' => $sheetResult['imported'],
                         'skipped' => $sheetResult['skipped'],
+                        'members_created' => $sheetResult['members_created'] ?? 0,
+                        'members_updated' => $sheetResult['members_updated'] ?? 0,
+                        'loans_created' => $sheetResult['loans_created'] ?? 0,
                         'errors' => $sheetResult['errors'],
                     ];
 
                     $results['summary']['total_rows'] += $sheetResult['imported'] + $sheetResult['skipped'];
                     $results['summary']['imported'] += $sheetResult['imported'];
                     $results['summary']['skipped'] += $sheetResult['skipped'];
+                    $results['summary']['members_created'] += $sheetResult['members_created'] ?? 0;
+                    $results['summary']['members_updated'] += $sheetResult['members_updated'] ?? 0;
+                    $results['summary']['loans_created'] += $sheetResult['loans_created'] ?? 0;
 
                 } catch (\Exception $e) {
                     $results['errors'][] = "Error pada sheet '{$sheetName}': " . $e->getMessage();
@@ -150,15 +142,79 @@ class ImportController extends Controller
     }
 
     /**
-     * Parse nama sheet menjadi tanggal
-     * "05 2025" -> 2025-05-01
+     * Import langsung tanpa preview - proses semua sheet dalam file
      */
-    private function parseSheetNameToDate(string $sheetName): string
+    public function direct(Request $request)
     {
-        $parts = explode(' ', trim($sheetName));
-        $month = str_pad($parts[0], 2, '0', STR_PAD_LEFT);
-        $year = $parts[1];
+        // Fix timeout & memory untuk file Excel besar
+        set_time_limit(300); // 5 menit
+        ini_set('memory_limit', '512M');
         
-        return "{$year}-{$month}-01";
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls|max:10240',
+        ]);
+
+        $file = $request->file('file');
+        $filePath = $file->getPathname(); // Use uploaded file temp path directly
+        
+        $results = [
+            'success' => [],
+            'errors' => [],
+            'summary' => [
+                'total_rows' => 0,
+                'imported' => 0,
+                'skipped' => 0,
+                'members_created' => 0,
+                'members_updated' => 0,
+                'loans_created' => 0,
+            ]
+        ];
+
+        try {
+            // Baca semua sheet dari file
+            $spreadsheet = IOFactory::load($filePath);
+            $allSheets = $spreadsheet->getSheetNames();
+
+            foreach ($allSheets as $sheetName) {
+                try {
+                    $import = new MonthlyTransactionImport($sheetName);
+                    
+                    Excel::import($import, $filePath, null, \Maatwebsite\Excel\Excel::XLSX, [
+                        'sheetName' => $sheetName
+                    ]);
+
+                    $sheetResult = $import->getImportResult();
+                    
+                    $results['success'][] = [
+                        'sheet' => $sheetName,
+                        'imported' => $sheetResult['imported'],
+                        'skipped' => $sheetResult['skipped'],
+                        'members_created' => $sheetResult['members_created'] ?? 0,
+                        'members_updated' => $sheetResult['members_updated'] ?? 0,
+                        'loans_created' => $sheetResult['loans_created'] ?? 0,
+                        'errors' => $sheetResult['errors'],
+                    ];
+
+                    $results['summary']['total_rows'] += $sheetResult['imported'] + $sheetResult['skipped'];
+                    $results['summary']['imported'] += $sheetResult['imported'];
+                    $results['summary']['skipped'] += $sheetResult['skipped'];
+                    $results['summary']['members_created'] += $sheetResult['members_created'] ?? 0;
+                    $results['summary']['members_updated'] += $sheetResult['members_updated'] ?? 0;
+                    $results['summary']['loans_created'] += $sheetResult['loans_created'] ?? 0;
+
+                } catch (\Exception $e) {
+                    $results['errors'][] = "Error pada sheet '{$sheetName}': " . $e->getMessage();
+                    Log::error("Import Sheet Error [{$sheetName}]: " . $e->getMessage());
+                }
+            }
+
+            return view('imports.result', [
+                'results' => $results,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Import Direct Error: ' . $e->getMessage());
+            return back()->with('error', 'Gagal memproses import: ' . $e->getMessage());
+        }
     }
 }
