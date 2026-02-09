@@ -37,19 +37,22 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
 
     /**
      * Keywords untuk deteksi kolom header
+     * PENTING: sisa_cicilan harus sebelum sisa_pinjaman karena "SISA CICILAN" mengandung "SISA"
      */
     const HEADER_KEYWORDS = [
         'nik' => ['NIK', 'NO INDUK', 'NIP'],
         'name' => ['NAMA', 'NAMA ANGGOTA', 'NAMA KARYAWAN'],
         'dept' => ['DEPT', 'DEPARTMENT', 'BAGIAN'],
-        'pot_kop' => ['POT KOP', 'POT_KOP', 'POTONGAN', 'POT. KOP'],
+        'pot_kop' => ['POT KOP', 'POT_KOP', 'POTONGAN', 'POT. KOP', 'POT'],
         'iur_kop' => ['IUR KOP', 'IUR_KOP', 'IURAN', 'IUR. KOP'],
         'iur_tunai' => ['IUR TUNAI', 'IUR_TUNAI', 'TUNAI'],
         'jumlah' => ['JUMLAH', 'TOTAL'],
-        'sisa_pinjaman' => ['SISA PINJAMAN', 'SISA_PINJAMAN', 'SISA HUTANG'],
         'saldo' => ['SALDO', 'SALDO KOPRASI', 'SALDO KOPERASI', 'SALDO KOP'],
         'adiputro_csd' => ['ADIPUTRO', 'CSD', 'ADIPUTRO CSD'],
+        // sisa_cicilan HARUS sebelum sisa_pinjaman
         'sisa_cicilan' => ['SISA CICILAN', 'SISA_CICILAN', 'CICILAN'],
+        'sisa_pinjaman' => ['SISA PINJAMAN', 'SISA_PINJAMAN', 'SISA HUTANG'],
+        // 'SISA' alone will be handled by special logic to avoid matching 'SISA CICILAN'
     ];
 
     /**
@@ -90,16 +93,14 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
                     }
                     
                     // STEP 2: Deteksi section header (MANAGER, BANGUNAN, dll)
-                    // Hanya deteksi section jika BELUM dalam data area
-                    // Setelah masuk data area, section tidak berubah sampai header baru
-                    if (!$this->inDataArea) {
-                        $detectedSection = $this->detectSectionHeader($rowArray);
-                        if ($detectedSection) {
-                            $this->currentSection = $detectedSection;
-                            $this->columnMap = [];
-                            Log::info("Section detected: {$detectedSection} at row {$rowNumber}");
-                            continue;
-                        }
+                    // Cek section header SELALU - untuk multi-section dalam satu file
+                    $detectedSection = $this->detectSectionHeader($rowArray);
+                    if ($detectedSection) {
+                        $this->currentSection = $detectedSection;
+                        $this->columnMap = []; // Reset column map for new section
+                        $this->inDataArea = false; // Reset data area flag for new section
+                        Log::info("Section detected: {$detectedSection} at row {$rowNumber}");
+                        continue;
                     }
                     
                     // STEP 3: Deteksi kolom header
@@ -243,11 +244,13 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
 
     /**
      * Deteksi mapping kolom dari baris header
+     * Handle split cells: "IUR KOP" bisa jadi 2 sel: "IUR" dan "KOP"
      */
     protected function detectColumnMapping(array $headerRow): void
     {
         $this->columnMap = [];
         
+        // First pass: standard single-cell matching
         foreach ($headerRow as $colIndex => $cellValue) {
             $cellText = strtoupper(trim((string) $cellValue));
             
@@ -264,6 +267,73 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
                 }
             }
         }
+        
+        // Second pass: handle split cells for multi-word headers
+        // Check adjacent pairs of cells for combined keywords
+        $splitKeywords = [
+            'iur_kop' => [['IUR', 'KOP']], // "IUR" in one cell, "KOP" in next
+            'pot_kop' => [['POT', 'KOP']],
+            'iur_tunai' => [['IUR', 'TUNAI']],
+            'sisa_pinjaman' => [['SISA', 'PINJAMAN']],
+            'sisa_cicilan' => [['SISA', 'CICILAN']],
+        ];
+        
+        foreach ($splitKeywords as $fieldKey => $patterns) {
+            if (isset($this->columnMap[$fieldKey])) continue; // Already mapped
+            
+            foreach ($patterns as $pattern) {
+                for ($i = 0; $i < count($headerRow) - 1; $i++) {
+                    $cell1 = strtoupper(trim((string) ($headerRow[$i] ?? '')));
+                    $cell2 = strtoupper(trim((string) ($headerRow[$i + 1] ?? '')));
+                    
+                    // Check if two adjacent cells match the pattern
+                    if ($cell1 === $pattern[0] && $cell2 === $pattern[1]) {
+                        $this->columnMap[$fieldKey] = $i; // Use first cell's position
+                        Log::info("Split header detected: {$fieldKey} at columns {$i}-" . ($i+1) . " ({$cell1} {$cell2})");
+                        break 2;
+                    }
+                }
+            }
+        }
+        
+        // Special handling: search for iur_kop between pot_kop and iur_tunai/jumlah
+        if (!isset($this->columnMap['iur_kop']) && isset($this->columnMap['pot_kop'])) {
+            $startCol = $this->columnMap['pot_kop'] + 1;
+            $endCol = $this->columnMap['iur_tunai'] ?? ($this->columnMap['jumlah'] ?? count($headerRow));
+            
+            for ($i = $startCol; $i < $endCol; $i++) {
+                $cell = strtoupper(trim((string) ($headerRow[$i] ?? '')));
+                
+                // Skip empty cells and cells that are just "KOP" (second half of POT KOP)
+                if (empty($cell) || $cell === 'KOP') continue;
+                
+                // If cell contains "IUR" but not "TUNAI", it's iur_kop
+                if ($cell === 'IUR' || (str_contains($cell, 'IUR') && !str_contains($cell, 'TUNAI'))) {
+                    $this->columnMap['iur_kop'] = $i;
+                    Log::info("iur_kop inferred at column {$i} (cell: {$cell})");
+                    break;
+                }
+            }
+        }
+        
+        // Special handling: search for sisa_pinjaman between jumlah and saldo
+        if (!isset($this->columnMap['sisa_pinjaman']) && isset($this->columnMap['saldo'])) {
+            $startCol = $this->columnMap['jumlah'] ?? $this->columnMap['iur_tunai'] ?? 0;
+            $endCol = $this->columnMap['saldo'];
+            
+            for ($i = $startCol + 1; $i < $endCol; $i++) {
+                $cell = strtoupper(trim((string) ($headerRow[$i] ?? '')));
+                
+                // If cell contains "SISA" but not "CICILAN", it's sisa_pinjaman
+                if (str_contains($cell, 'SISA') && !str_contains($cell, 'CICILAN')) {
+                    $this->columnMap['sisa_pinjaman'] = $i;
+                    Log::info("sisa_pinjaman inferred at column {$i} (cell: {$cell})");
+                    break;
+                }
+            }
+        }
+        
+        Log::info("Column mapping result: " . json_encode($this->columnMap));
     }
 
     /**
