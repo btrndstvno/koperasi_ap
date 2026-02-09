@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use App\Exports\MonthlyReportExport;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Support\Facades\Artisan;
 
 class ReportController extends Controller
 {
@@ -96,6 +97,178 @@ class ReportController extends Controller
             'transactions',
             'cashFlowByType'
         ));
+    }
+
+    /**
+     * Display SHU Preview Report.
+     */
+    public function shu(Request $request)
+    {
+        $year = (int) $request->get('year', now()->year);
+        
+        $shuPreview = $this->calculateSHUPreview($year);
+        
+        // Check if SHU already distributed for this year
+        $isDistributed = Transaction::where('type', Transaction::TYPE_SHU_REWARD)
+            ->where('notes', 'like', "%{$year}%")
+            ->exists();
+
+        return view('reports.shu', compact('shuPreview', 'year', 'isDistributed'));
+    }
+
+    /**
+     * Process SHU Distribution.
+     */
+    public function distributeSHU(Request $request)
+    {
+        $year = (int) $request->input('year');
+        
+        if (!$year) {
+            return back()->with('error', 'Tahun tidak valid.');
+        }
+
+        try {
+            // Call artisan command
+            $exitCode = Artisan::call('app:distribute-shu', [
+                '--year' => $year,
+                '--rate' => 5 // Default fixed rate
+            ]);
+
+            if ($exitCode === 0) {
+                return back()->with('success', "Pembagian SHU tahun {$year} berhasil diproses.");
+            } else {
+                return back()->with('error', 'Gagal memproses SHU. Cek log atau pastikan belum didistribusikan.');
+            }
+        } catch (\Exception $e) {
+            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Calculate SHU preview for a given year.
+     * 
+     * RUMUS: Pinjaman × (Cicilan di Tahun / 10) × 5%
+     * Pembulatan ke 500 terdekat
+     */
+    private function calculateSHUPreview(int $targetYear): array
+    {
+        $rate = 5; // 5%
+        $targetYearEnd = \Carbon\Carbon::create($targetYear, 12, 31)->endOfDay();
+
+        $loans = Loan::whereIn('status', [Loan::STATUS_ACTIVE, Loan::STATUS_PAID])
+            ->where('created_at', '<=', $targetYearEnd)
+            ->with(['member.transactions' => function ($query) use ($targetYearEnd) {
+                // Eager load transactions up to target year for saldo calculation
+                $query->where('transaction_date', '<=', $targetYearEnd);
+            }])
+            ->get();
+
+        if ($loans->isEmpty()) {
+            return [];
+        }
+
+        $memberSHU = [];
+        $depositTypes = [
+            Transaction::TYPE_SAVING_DEPOSIT,
+            Transaction::TYPE_SAVING_INTEREST,
+            Transaction::TYPE_SHU_REWARD
+        ];
+
+        foreach ($loans as $loan) {
+            $loanStartDate = \Carbon\Carbon::parse($loan->created_at);
+            $loanStartMonth = $loanStartDate->month;
+            $loanStartYear = $loanStartDate->year;
+            $duration = $loan->duration;
+
+            // Calculate loan end date
+            $loanEndDate = $loanStartDate->copy()->addMonths($duration - 1);
+
+            // Skip if loan started after target year or ended before
+            if ($loanStartYear > $targetYear || $loanEndDate->year < $targetYear) {
+                continue;
+            }
+
+            // Calculate installments in target year
+            $installmentsInYear = $this->calculateInstallmentsInYear(
+                $loanStartYear,
+                $loanStartMonth,
+                $duration,
+                $targetYear
+            );
+
+            if ($installmentsInYear <= 0) {
+                continue;
+            }
+
+            // Calculate SHU contribution
+            // SHU = amount * (installmentsInYear / 10) * 5%
+            $shuContribution = $loan->amount * ($installmentsInYear / 10) * ($rate / 100);
+
+            $memberId = $loan->member_id;
+            if (!isset($memberSHU[$memberId])) {
+                $member = $loan->member;
+                
+                // Calculate historical saldo from loaded transactions
+                $deposits = $member->transactions
+                    ->whereIn('type', $depositTypes)
+                    ->sum('total_amount');
+                    
+                $withdrawals = $member->transactions
+                    ->where('type', Transaction::TYPE_SAVING_WITHDRAW)
+                    ->sum('total_amount');
+                    
+                $historicalSaldo = $deposits - $withdrawals;
+
+                $memberSHU[$memberId] = [
+                    'nik' => $member->nik,
+                    'name' => $member->name,
+                    'dept' => $member->dept,
+                    'saldo' => $historicalSaldo,
+                    'total_loan' => 0,
+                    'shu_raw' => 0,
+                    'details' => [] // Debug info
+                ];
+            }
+            $memberSHU[$memberId]['total_loan'] += $loan->amount;
+            $memberSHU[$memberId]['shu_raw'] += $shuContribution;
+            $memberSHU[$memberId]['details'][] = "Loan $loan->amount: $installmentsInYear installments";
+        }
+
+        // Apply rounding (to nearest 500)
+        foreach ($memberSHU as &$data) {
+            $data['shu_rounded'] = $this->roundToNearest500($data['shu_raw']);
+        }
+
+        // Sort by NIK
+        usort($memberSHU, fn($a, $b) => strcmp($a['nik'], $b['nik']));
+
+        return $memberSHU;
+    }
+
+    /**
+     * Round to nearest 500.
+     * Example: 761,600 -> 761,500 | 545,370 -> 545,500
+     */
+    private function roundToNearest500(float $value): int
+    {
+        return (int) round($value / 500) * 500;
+    }
+
+    /**
+     * Calculate number of installments in a specific year.
+     */
+    private function calculateInstallmentsInYear(int $loanStartYear, int $loanStartMonth, int $duration, int $targetYear): int
+    {
+        $firstInstallmentAbsolute = ($loanStartYear * 12) + $loanStartMonth;
+        $lastInstallmentAbsolute = $firstInstallmentAbsolute + $duration - 1;
+
+        $targetYearFirstMonth = ($targetYear * 12) + 1;
+        $targetYearLastMonth = ($targetYear * 12) + 12;
+
+        $overlapStart = max($firstInstallmentAbsolute, $targetYearFirstMonth);
+        $overlapEnd = min($lastInstallmentAbsolute, $targetYearLastMonth);
+
+        return max(0, $overlapEnd - $overlapStart + 1);
     }
 
     /**

@@ -195,7 +195,7 @@
     </div>
     @if($transactions->hasPages())
     <div class="card-footer bg-white">
-        {{ $transactions->links() }}
+        {{ $transactions->appends(['month' => $month, 'year' => $year])->links() }}
     </div>
     @endif
 </div>

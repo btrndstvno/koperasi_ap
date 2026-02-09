@@ -309,6 +309,11 @@
                 </a>
             </li>
             <li class="nav-item">
+                <a class="nav-link {{ request()->routeIs('reports.shu') ? 'active' : '' }}" href="{{ route('reports.shu') }}">
+                    <i class="bi bi-gift"></i> Laporan SHU
+                </a>
+            </li>
+            <li class="nav-item">
                 <a class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}" href="{{ route('reports.index') }}">
                     <i class="bi bi-speedometer"></i> Ringkasan
                 </a>

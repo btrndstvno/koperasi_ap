@@ -62,6 +62,8 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // Reports (Moved all reports here to be safe)
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/monthly', [ReportController::class, 'monthly'])->name('reports.monthly');
+    Route::get('/reports/shu', [ReportController::class, 'shu'])->name('reports.shu');
+    Route::post('/reports/shu/distribute', [ReportController::class, 'distributeSHU'])->name('reports.shu.distribute');
     
     // Members Management
     Route::resource('members', MemberController::class);
