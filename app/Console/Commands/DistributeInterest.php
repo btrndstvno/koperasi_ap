@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\Member;
+use App\Models\Setting;
 use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -18,7 +19,7 @@ class DistributeInterest extends Command
     protected $signature = 'app:distribute-interest 
                             {--month= : Bulan (1-12), default bulan ini}
                             {--year= : Tahun, default tahun ini}
-                            {--rate=5 : Persentase bunga tahunan (default 5%)}
+                            {--rate= : Persentase bunga tahunan (default dari pengaturan sistem)}
                             {--dry-run : Simulasi tanpa menyimpan ke database}';
 
     /**
@@ -38,10 +39,19 @@ class DistributeInterest extends Command
     {
         $month = $this->option('month') ?? now()->month;
         $year = $this->option('year') ?? now()->year;
-        $rate = (float) $this->option('rate');
+        
+        // Get rate from option or from settings (use historical rate at period date)
+        $periodDate = Carbon::create($year, $month, 28);
+        
+        if ($this->option('rate') !== null) {
+            $rate = (float) $this->option('rate');
+        } else {
+            // Use saving interest rate from settings at the time of period
+            $rate = Setting::getRateAtDate('saving_interest_rate', $periodDate->toDateString()) ?? Setting::getSavingInterestRate();
+        }
+        
         $isDryRun = $this->option('dry-run');
 
-        $periodDate = Carbon::create($year, $month, 28);
         $monthName = $periodDate->translatedFormat('F Y');
 
         $this->info("===========================================");

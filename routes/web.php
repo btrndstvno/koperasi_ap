@@ -8,6 +8,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\MemberController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\WithdrawalController;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
+| Semua route (kecuali login) hanya bisa diakses oleh Admin.
+| Member tidak memiliki akses ke sistem.
 */
 
 // ============================================================
@@ -29,10 +32,10 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
 // ============================================================
-// AUTHENTICATED ROUTES (All Users)
+// ADMIN ROUTES (Admin Only - All Features)
 // ============================================================
-Route::middleware('auth')->group(function () {
-    // Dashboard (Role-based redirect)
+Route::middleware(['auth', 'role:admin'])->group(function () {
+    // Dashboard
     Route::get('/', fn() => redirect()->route('dashboard'));
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -40,26 +43,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
-    // Member can submit loan application
-    Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
-    Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
-    Route::get('/loans/{loan}', [LoanController::class, 'show'])->name('loans.show');
+    // System Settings (Bunga)
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings.index');
+    Route::put('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
-    // Member Savings (Riwayat Pembayaran/Tabungan)
-    Route::get('/my-savings', [TransactionController::class, 'mySavings'])->name('members.my-savings');
-
-    // Withdrawals - Member can view and submit
-    Route::get('/withdrawals', [WithdrawalController::class, 'index'])->name('withdrawals.index');
-    Route::get('/withdrawals/create', [WithdrawalController::class, 'create'])->name('withdrawals.create');
-    Route::post('/withdrawals', [WithdrawalController::class, 'store'])->name('withdrawals.store');
-    Route::get('/withdrawals/{withdrawal}', [WithdrawalController::class, 'show'])->name('withdrawals.show');
-});
-
-// ============================================================
-// ADMIN ROUTES (Admin Only)
-// ============================================================
-Route::middleware(['auth', 'role:admin'])->group(function () {
-    // Reports (Moved all reports here to be safe)
+    // Reports
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/monthly', [ReportController::class, 'monthly'])->name('reports.monthly');
     Route::get('/reports/shu', [ReportController::class, 'shu'])->name('reports.shu');
@@ -72,13 +60,24 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/members/{member}/withdraw-saving', [MemberController::class, 'withdrawSaving'])->name('members.withdraw-saving');
 
     // Loans Management
-    // Route::get('/loans', [LoanController::class, 'index'])->name('loans.index'); // Moved to shared routes
+    Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
     Route::get('/loans/create', [LoanController::class, 'create'])->name('loans.create');
+    Route::post('/loans', [LoanController::class, 'store'])->name('loans.store');
+    Route::get('/loans/{loan}', [LoanController::class, 'show'])->name('loans.show');
     Route::post('/loans/{loan}/repay', [LoanController::class, 'repay'])->name('loans.repay');
     Route::post('/loans/{loan}/approve', [LoanController::class, 'approve'])->name('loans.approve');
     Route::put('/loans/{loan}/update-amount', [LoanController::class, 'updateAmount'])->name('loans.update-amount');
     Route::post('/loans/{loan}/reject', [LoanController::class, 'reject'])->name('loans.reject');
     Route::get('/loans/{loan}/print', [LoanController::class, 'print'])->name('loans.print');
+
+    // Withdrawals Management (Admin processes all withdrawals)
+    Route::get('/withdrawals', [WithdrawalController::class, 'index'])->name('withdrawals.index');
+    Route::get('/withdrawals/create', [WithdrawalController::class, 'create'])->name('withdrawals.create');
+    Route::post('/withdrawals', [WithdrawalController::class, 'store'])->name('withdrawals.store');
+    Route::get('/withdrawals/{withdrawal}', [WithdrawalController::class, 'show'])->name('withdrawals.show');
+    Route::post('/withdrawals/{withdrawal}/approve', [WithdrawalController::class, 'approve'])->name('withdrawals.approve');
+    Route::post('/withdrawals/{withdrawal}/reject', [WithdrawalController::class, 'reject'])->name('withdrawals.reject');
+    Route::get('/withdrawals/{withdrawal}/print', [WithdrawalController::class, 'print'])->name('withdrawals.print');
 
     // Bulk Transactions
     Route::get('/transactions/bulk', [TransactionController::class, 'createBulk'])->name('transactions.bulk.create');
@@ -92,9 +91,4 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 
     // Exports
     Route::get('/exports/members', [ExportController::class, 'members'])->name('exports.members');
-
-    // Withdrawals Admin Actions
-    Route::post('/withdrawals/{withdrawal}/approve', [WithdrawalController::class, 'approve'])->name('withdrawals.approve');
-    Route::post('/withdrawals/{withdrawal}/reject', [WithdrawalController::class, 'reject'])->name('withdrawals.reject');
-    Route::get('/withdrawals/{withdrawal}/print', [WithdrawalController::class, 'print'])->name('withdrawals.print');
 });

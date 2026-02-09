@@ -37,50 +37,112 @@ class TransactionController extends Controller
      * Show bulk transaction form (Input Massal/Gajian).
      * 
      * SISTEM "BUNGA POTONG DI AWAL" + GROUPING BY GROUP_TAG:
-     * - Cicilan = monthly_installment (fixed, hanya pokok)
-     * - Data sudah di-group berdasarkan group_tag (Manager, Bangunan, Karyawan)
-     * - Urutkan anggota berdasarkan NIK (cast as integer)
+    /**
+     * Show bulk transaction form (Input Massal/Gajian).
+     * 
+     * Logic Updated:
+     * - Saldo simpanan sekarang bersifat historis (snapshot per akhir bulan yang dipilih)
+     * - Pinjaman dan cicilan juga historis (hanya muncul jika aktif pada bulan tersebut)
      */
     public function createBulk(Request $request)
     {
-        $month = $request->get('month', now()->month);
-        $year = $request->get('year', now()->year);
+        $month = (int) $request->get('month', now()->month);
+        $year = (int) $request->get('year', now()->year);
         $transactionDate = sprintf('%04d-%02d-01', $year, $month);
+        
+        $targetDate = \Carbon\Carbon::createFromDate($year, $month, 1);
+        $targetMonthStart = $targetDate->copy()->startOfMonth();
+        $targetMonthEnd = $targetDate->copy()->endOfMonth();
 
-        // Get all members with their active loans
-        $members = Member::with(['activeLoans'])
-            ->get()
-            ->map(function ($member) {
-                $activeLoan = $member->activeLoans->first();
-                
-                // Gunakan monthly_installment jika ada, fallback ke hitungan manual
-                $monthlyInstallment = 0;
-                if ($activeLoan) {
-                    $monthlyInstallment = $activeLoan->monthly_installment > 0 
-                        ? $activeLoan->monthly_installment 
-                        : $activeLoan->monthly_principal;
-                }
-                
-                return (object) [
-                    'id' => $member->id,
-                    'nik' => $member->nik,
-                    'nik_numeric' => (int) preg_replace('/[^0-9]/', '', $member->nik), // For sorting
-                    'name' => $member->name,
-                    'group_tag' => $member->group_tag ?? 'Office',
-                    'dept' => $member->dept,
-                    'csd' => $member->group_tag ?? '-', // Use Group Tag as CSD
-                    'savings_balance' => (float) $member->savings_balance,
-                    'has_loan' => $activeLoan !== null,
-                    'loan_id' => $activeLoan?->id,
-                    'remaining_principal' => (float) ($activeLoan?->remaining_principal ?? 0),
-                    'remaining_installments' => $activeLoan ? $activeLoan->remaining_installments : 0,
-                    'pot_kop' => (float) $monthlyInstallment, // Potongan Koperasi (cicilan)
-                    'iur_kop' => 0, // Default iuran simpanan (potong gaji)
-                    'iur_tunai' => 0, // Default iuran tunai
-                ];
-            })
-            // Sort by NIK as integer
-            ->sortBy('nik_numeric');
+        // Get all members with their loans and transactions
+        // Eager load transactions filtered by date for optimization
+        $members = Member::with(['loans', 'transactions' => function ($q) use ($targetMonthEnd) {
+            $q->where('transaction_date', '<=', $targetMonthEnd->toDateString());
+        }])
+        ->get()
+        ->map(function ($member) use ($targetDate, $targetMonthStart) {
+            // Find loan that is active in the selected period
+            $activeLoanInPeriod = $member->loans->filter(function($loan) use ($targetDate) {
+                 $start = \Carbon\Carbon::parse($loan->created_at)->startOfMonth();
+                 // Estimated end date
+                 $end = $start->copy()->addMonths($loan->duration - 1)->endOfMonth();
+                 
+                 // Loan is candidate if target date is within range
+                 // AND loan was created before or inside target month
+                 return $targetDate->between($start, $end);
+            })->first();
+
+            $pot_kop = 0;
+            $sisa_pinjaman = 0;
+            $remaining_installments = 0;
+            $loan_id = null;
+
+            if ($activeLoanInPeriod) {
+                 // Hitung pembayaran yang SUDAH dilakukan SEBELUM bulan ini
+                 // (Untuk menentukan sisa hutang di AWAL bulan ini)
+                 $pastRepayments = $member->transactions
+                     ->where('loan_id', $activeLoanInPeriod->id)
+                     ->where('type', 'loan_repayment') // Hardcoded type check
+                     ->where('transaction_date', '<', $targetMonthStart->toDateString())
+                     ->sum('amount_principal');
+                     
+                 $pastInstallmentsCount = $member->transactions
+                     ->where('loan_id', $activeLoanInPeriod->id)
+                     ->where('type', 'loan_repayment')
+                     ->where('transaction_date', '<', $targetMonthStart->toDateString())
+                     ->count();
+                     
+                 $remainingPrincipal = $activeLoanInPeriod->amount - $pastRepayments;
+                 
+                 // Jika masih ada sisa hutang & sisa tenor, maka tampilkan tagihan
+                 if ($remainingPrincipal > 100) { // Tolerance for floating point
+                     $pot_kop = $activeLoanInPeriod->monthly_installment > 0 
+                        ? $activeLoanInPeriod->monthly_installment 
+                        : $activeLoanInPeriod->monthly_principal;
+                        
+                     $sisa_pinjaman = $remainingPrincipal;
+                     $remaining_installments = max(0, $activeLoanInPeriod->duration - $pastInstallmentsCount);
+                     $loan_id = $activeLoanInPeriod->id;
+                 }
+            }
+
+            // Hitung Saldo Historis (Sampai akhir bulan terpilih)
+            // Ini termasuk transaksi yang mungkin SUDAH diinput di bulan ini
+            $depositTypes = [
+                Transaction::TYPE_SAVING_DEPOSIT,
+                Transaction::TYPE_SAVING_INTEREST,
+                Transaction::TYPE_SHU_REWARD
+            ];
+
+            $histDeposits = $member->transactions
+                ->whereIn('type', $depositTypes)
+                ->sum('total_amount');
+            
+            $histWithdraws = $member->transactions
+                ->where('type', Transaction::TYPE_SAVING_WITHDRAW)
+                ->sum('total_amount');
+
+            $saldoHistoris = $histDeposits - $histWithdraws;
+            
+            return (object) [
+                'id' => $member->id,
+                'nik' => $member->nik,
+                'nik_numeric' => (int) preg_replace('/[^0-9]/', '', $member->nik),
+                'name' => $member->name,
+                'group_tag' => $member->group_tag ?? 'Office',
+                'dept' => $member->dept,
+                'csd' => $member->group_tag ?? '-', 
+                'savings_balance' => (float) $saldoHistoris,
+                'has_loan' => $loan_id !== null,
+                'loan_id' => $loan_id,
+                'remaining_principal' => (float) $sisa_pinjaman,
+                'remaining_installments' => $remaining_installments,
+                'pot_kop' => (float) $pot_kop,
+                'iur_kop' => 0, 
+                'iur_tunai' => 0,
+            ];
+        })
+        ->sortBy('nik_numeric');
 
         // Group by group_tag dengan urutan: Manager, Bangunan, CSD, Office
         $groupOrder = ['Manager' => 1, 'Bangunan' => 2, 'CSD' => 3, 'Office' => 4];

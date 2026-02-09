@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Loan;
 use App\Models\Member;
+use App\Models\Setting;
 use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -18,7 +19,7 @@ class DistributeSHU extends Command
      */
     protected $signature = 'app:distribute-shu 
                             {--year= : Tahun yang dihitung (default: tahun lalu)}
-                            {--rate=5 : Persentase SHU (default 5%)}
+                            {--rate= : Persentase SHU (default dari pengaturan sistem)}
                             {--dry-run : Simulasi tanpa menyimpan ke database}';
 
     /**
@@ -45,8 +46,17 @@ class DistributeSHU extends Command
     public function handle()
     {
         $targetYear = (int) ($this->option('year') ?? (now()->year - 1));
-        $rate = (float) $this->option('rate');
         $isDryRun = $this->option('dry-run');
+
+        // Get rate from option or from settings (use historical rate at end of target year)
+        $targetYearEnd = Carbon::create($targetYear, 12, 31)->toDateString();
+        
+        if ($this->option('rate') !== null) {
+            $rate = (float) $this->option('rate');
+        } else {
+            // Use SHU rate from settings at the end of target year
+            $rate = Setting::getRateAtDate('shu_rate', $targetYearEnd) ?? Setting::getShuRate();
+        }
 
         $distributionDate = Carbon::create(now()->year, 1, 1)->toDateString();
 

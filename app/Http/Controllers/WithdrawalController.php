@@ -104,7 +104,7 @@ class WithdrawalController extends Controller
                 ->withInput();
         }
 
-        Withdrawal::create([
+        $withdrawal = Withdrawal::create([
             'member_id' => $validated['member_id'],
             'amount' => $validated['amount'],
             'request_date' => now()->toDateString(),
@@ -112,8 +112,8 @@ class WithdrawalController extends Controller
             'notes' => $validated['notes'],
         ]);
 
-        return redirect()->route('withdrawals.index')
-            ->with('success', 'Pengajuan penarikan saldo berhasil diajukan.');
+        return redirect()->route('withdrawals.show', $withdrawal)
+            ->with('success', 'Pengajuan penarikan saldo berhasil diajukan. Silakan cetak bukti penarikan.');
     }
 
     /**
@@ -165,10 +165,10 @@ class WithdrawalController extends Controller
                 'loan_id' => null,
                 'transaction_date' => now()->toDateString(),
                 'type' => Transaction::TYPE_SAVING_WITHDRAW,
-                'amount_saving' => -$withdrawal->amount, // Negative for withdrawal
+                'amount_saving' => $withdrawal->amount, // Positive value (Debit/Out)
                 'amount_principal' => 0,
                 'amount_interest' => 0,
-                'total_amount' => -$withdrawal->amount,
+                'total_amount' => $withdrawal->amount,
                 'payment_method' => 'cash',
                 'notes' => 'Penarikan saldo simpanan #' . $withdrawal->id . ($withdrawal->notes ? ' - ' . $withdrawal->notes : ''),
             ]);

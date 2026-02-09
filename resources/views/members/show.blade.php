@@ -46,11 +46,14 @@
                     <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSavingModal">
                         <i class="bi bi-plus-circle me-1"></i> Tambah Simpanan
                     </button>
-                    <!-- @if(!$member->hasActiveLoan())
+                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#withdrawSavingModal">
+                        <i class="bi bi-dash-circle me-1"></i> Tarik Simpanan
+                    </button>
+                    @if(!$member->hasActiveLoan())
                     <a href="{{ route('loans.create', ['member_id' => $member->id]) }}" class="btn btn-primary">
                         <i class="bi bi-cash me-1"></i> Buat Pinjaman Baru
                     </a>
-                    @endif -->
+                    @endif
                     <a href="{{ route('members.edit', $member) }}" class="btn btn-outline-secondary">
                         <i class="bi bi-pencil me-1"></i> Edit
                     </a>
@@ -284,6 +287,48 @@
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-success">
                         <i class="bi bi-check me-1"></i> Simpan
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Tarik Simpanan -->
+<div class="modal fade" id="withdrawSavingModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="{{ route('withdrawals.store') }}" method="POST">
+                @csrf
+                <input type="hidden" name="member_id" value="{{ $member->id }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-dash-circle me-2"></i>Pengajuan Penarikan Simpanan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Saldo Tersedia: <strong>Rp {{ number_format($member->savings_balance, 0, ',', '.') }}</strong>
+                    </div>
+                    <div class="alert alert-info">
+                        <small>Penarikan akan berstatus <strong>Pending</strong>. Harap setelah submit, cetak bukti penarikan, minta tanda tangan, lalu setujui (ACC) agar saldo berkurang.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label form-label-required">Nominal Penarikan</label>
+                        <div class="input-group">
+                            <span class="input-group-text">Rp</span>
+                            <input type="number" name="amount" class="form-control input-currency" required min="10000" max="{{ $member->savings_balance }}" step="1000">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Catatan</label>
+                        <input type="text" name="notes" class="form-control" placeholder="Opsional">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-send me-1"></i> Ajukan Penarikan
                     </button>
                 </div>
             </form>

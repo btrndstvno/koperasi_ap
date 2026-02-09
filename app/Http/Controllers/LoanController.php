@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Loan;
 use App\Models\Member;
+use App\Models\Setting;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,8 +77,11 @@ class LoanController extends Controller
             }
         }
 
+        // Get default loan interest rate from settings
+        $defaultInterestRate = Setting::getLoanInterestRate();
+
         // Tidak perlu load semua members, karena pakai Select2 AJAX
-        return view('loans.create', compact('member'));
+        return view('loans.create', compact('member', 'defaultInterestRate'));
     }
 
     /**

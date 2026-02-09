@@ -34,7 +34,80 @@
             background: linear-gradient(180deg, #2c3e50 0%, #1a252f 100%);
             padding-top: 0;
             z-index: 1000;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar-content {
+            flex: 1;
             overflow-y: auto;
+        }
+
+        .sidebar-footer {
+            padding: 1rem;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #3498db;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        /* Sidebar Footer Dropup Styles */
+        .sidebar-footer .dropdown-toggle-custom {
+            border: none;
+            background: transparent;
+            outline: none;
+            box-shadow: none;
+            border-radius: 0.5rem;
+            transition: background 0.2s;
+            padding: 0.5rem !important;
+        }
+        
+        .sidebar-footer .dropdown-toggle-custom:hover,
+        .sidebar-footer .show > .dropdown-toggle-custom {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .sidebar-footer .dropdown-toggle-custom::after {
+            display: none;
+        }
+        
+        .sidebar-footer .dropdown-menu {
+            background-color: #1a252f;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 0.5rem;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        .sidebar-footer .dropdown-item {
+            color: rgba(255,255,255,0.8);
+            border-radius: 0.375rem;
+            padding: 0.5rem 1rem;
+            margin-bottom: 2px;
+        }
+        
+        .sidebar-footer .dropdown-item:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .sidebar-footer .dropdown-item.text-danger {
+            color: #ff6b6b !important;
+        }
+        
+        .sidebar-footer .dropdown-item.text-danger:hover {
+            background: rgba(220, 53, 69, 0.15);
         }
         
         .sidebar-brand {
@@ -226,100 +299,118 @@
 <body>
     <!-- Sidebar -->
     <nav class="sidebar">
-        <div class="sidebar-brand">
-            <h4><i class="bi bi-building"></i> Koperasi</h4>
-            <small>Koperasi AP</small>
+        <div class="sidebar-content">
+            <div class="sidebar-brand">
+                <h4><i class="bi bi-building"></i> Koperasi</h4>
+                <small>Koperasi AP</small>
+            </div>
+            
+            <div class="sidebar-heading">Menu Utama</div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
+                        <i class="bi bi-speedometer2"></i> Dashboard
+                    </a>
+                </li>
+
+                {{-- ADMIN MENUS (Only Admin can access this system) --}}
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('members.*') ? 'active' : '' }}" href="{{ route('members.index') }}">
+                        <i class="bi bi-people"></i> Anggota
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('loans.*') && !request()->routeIs('loans.show') ? 'active' : '' }} d-flex align-items-center" href="{{ route('loans.index') }}">
+                        <i class="bi bi-cash-stack"></i> 
+                        <span class="flex-grow-1">Pinjaman</span>
+                        @if(isset($globalPendingLoans) && $globalPendingLoans > 0)
+                            <span class="badge-notification">{{ $globalPendingLoans }}</span>
+                        @endif
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('withdrawals.*') ? 'active' : '' }} d-flex align-items-center" href="{{ route('withdrawals.index') }}">
+                        <i class="bi bi-wallet2"></i> 
+                        <span class="flex-grow-1">Penarikan Saldo</span>
+                        @if(isset($globalPendingWithdrawals) && $globalPendingWithdrawals > 0)
+                            <span class="badge-notification">{{ $globalPendingWithdrawals }}</span>
+                        @endif
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="sidebar-heading">Transaksi</div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('transactions.bulk*') ? 'active' : '' }}" href="{{ route('transactions.bulk.create') }}">
+                        <i class="bi bi-receipt"></i> Input Massal/Gajian
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('imports.*') ? 'active' : '' }}" href="{{ route('imports.index') }}">
+                        <i class="bi bi-file-earmark-excel"></i> Import Excel
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="sidebar-heading">Laporan</div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('reports.monthly') ? 'active' : '' }}" href="{{ route('reports.monthly') }}">
+                        <i class="bi bi-table"></i> Laporan Transaksi
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('reports.shu') ? 'active' : '' }}" href="{{ route('reports.shu') }}">
+                        <i class="bi bi-gift"></i> Laporan SHU
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}" href="{{ route('reports.index') }}">
+                        <i class="bi bi-speedometer"></i> Ringkasan
+                    </a>
+                </li>
+            </ul>
+            
+            <div class="sidebar-heading">Pengaturan</div>
+            <ul class="nav flex-column">
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('settings.*') ? 'active' : '' }}" href="{{ route('settings.index') }}">
+                        <i class="bi bi-gear"></i> Pengaturan Bunga
+                    </a>
+                </li>
+            </ul>
         </div>
-        
-        <div class="sidebar-heading">Menu Utama</div>
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}">
-                    <i class="bi bi-speedometer2"></i> Dashboard
-                </a>
-            </li>
 
-            {{-- ADMIN MENUS --}}
-            @if(Auth::user()->isAdmin())
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('members.*') ? 'active' : '' }}" href="{{ route('members.index') }}">
-                    <i class="bi bi-people"></i> Anggota
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('loans.*') && !request()->routeIs('loans.show') ? 'active' : '' }} d-flex align-items-center" href="{{ route('loans.index') }}">
-                    <i class="bi bi-cash-stack"></i> 
-                    <span class="flex-grow-1">Pinjaman</span>
-                    @if(isset($globalPendingLoans) && $globalPendingLoans > 0)
-                        <span class="badge-notification">{{ $globalPendingLoans }}</span>
-                    @endif
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('withdrawals.*') ? 'active' : '' }} d-flex align-items-center" href="{{ route('withdrawals.index') }}">
-                    <i class="bi bi-wallet2"></i> 
-                    <span class="flex-grow-1">Penarikan Saldo</span>
-                    @if(isset($globalPendingWithdrawals) && $globalPendingWithdrawals > 0)
-                        <span class="badge-notification">{{ $globalPendingWithdrawals }}</span>
-                    @endif
-                </a>
-            </li>
-            @endif
-
-            {{-- MEMBER MENUS --}}
-            @if(Auth::user()->isMember())
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('loans.*') ? 'active' : '' }}" href="{{ route('loans.index') }}">
-                    <i class="bi bi-clock-history"></i> Riwayat Pinjaman
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('members.my-savings') ? 'active' : '' }}" href="{{ route('members.my-savings') }}">
-                    <i class="bi bi-wallet2"></i> Riwayat Pembayaran
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('withdrawals.*') ? 'active' : '' }}" href="{{ route('withdrawals.index') }}">
-                    <i class="bi bi-cash-coin"></i> Penarikan Saldo
-                </a>
-            </li>
-            @endif
-        </ul>
-        
-        @if(Auth::user()->isAdmin())
-        <div class="sidebar-heading">Transaksi</div>
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('transactions.bulk*') ? 'active' : '' }}" href="{{ route('transactions.bulk.create') }}">
-                    <i class="bi bi-receipt"></i> Input Massal/Gajian
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('imports.*') ? 'active' : '' }}" href="{{ route('imports.index') }}">
-                    <i class="bi bi-file-earmark-excel"></i> Import Excel
-                </a>
-            </li>
-        </ul>
-        
-        <div class="sidebar-heading">Laporan</div>
-        <ul class="nav flex-column">
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('reports.monthly') ? 'active' : '' }}" href="{{ route('reports.monthly') }}">
-                    <i class="bi bi-table"></i> Laporan Transaksi
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('reports.shu') ? 'active' : '' }}" href="{{ route('reports.shu') }}">
-                    <i class="bi bi-gift"></i> Laporan SHU
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {{ request()->routeIs('reports.index') ? 'active' : '' }}" href="{{ route('reports.index') }}">
-                    <i class="bi bi-speedometer"></i> Ringkasan
-                </a>
-            </li>
-        </ul>
-        @endif
+        <div class="sidebar-footer">
+            <div class="dropup w-100">
+                <button type="button" class="btn w-100 d-flex align-items-center dropdown-toggle-custom" data-bs-toggle="dropdown" aria-expanded="false">
+                    <div class="user-avatar text-uppercase">
+                        {{ substr(Auth::user()->name ?? 'A', 0, 2) }}
+                    </div>
+                    <div class="text-start flex-grow-1 overflow-hidden">
+                        <div class="fw-semibold text-white text-truncate">{{ Auth::user()->name ?? 'Admin' }}</div>
+                        <div class="small text-white opacity-75">{{ Auth::user()->role ?? 'Admin' }}</div>
+                    </div>
+                    <i class="bi bi-chevron-up text-white opacity-75 ms-2"></i>
+                </button>
+                <ul class="dropdown-menu w-100 shadow-lg">
+                    <li>
+                        <a class="dropdown-item" href="{{ route('profile.edit') }}">
+                            <i class="bi bi-person-gear me-2"></i> Edit Profil
+                        </a>
+                    </li>
+                    <li>
+                        <form action="{{ route('logout') }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item text-danger">
+                                <i class="bi bi-box-arrow-right me-2"></i> Logout
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
     </nav>
 
     <!-- Main Content -->
@@ -334,23 +425,6 @@
             </div>
             <div class="d-flex align-items-center">
                 <span class="me-3 text-muted small">{{ now()->translatedFormat('l, d F Y') }}</span>
-                <div class="dropdown">
-                    <button class="btn btn-link dropdown-toggle text-dark text-decoration-none" type="button" data-bs-toggle="dropdown">
-                        <i class="bi bi-person-circle me-1"></i> {{ Auth::user()->name ?? 'Admin' }}
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ route('profile.edit') }}"><i class="bi bi-gear me-2"></i> Pengaturan</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <form action="{{ route('logout') }}" method="POST">
-                                @csrf
-                                <button type="submit" class="dropdown-item text-danger">
-                                    <i class="bi bi-box-arrow-right me-2"></i> Logout
-                                </button>
-                            </form>
-                        </li>
-                    </ul>
-                </div>
             </div>
         </nav>
         

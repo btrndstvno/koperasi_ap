@@ -78,7 +78,7 @@
                             <div class="input-group">
                                 <input type="number" name="interest_rate" id="interest_rate" 
                                        class="form-control @error('interest_rate') is-invalid @enderror" 
-                                       value="{{ old('interest_rate', 1.5) }}" required min="0" step="0.1">
+                                       value="{{ old('interest_rate', $defaultInterestRate ?? 1) }}" required min="0" step="0.1">
                                 <span class="input-group-text">%</span>
                             </div>
                             @error('interest_rate')

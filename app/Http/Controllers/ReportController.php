@@ -201,8 +201,11 @@ class ReportController extends Controller
             }
 
             // Calculate SHU contribution
-            // SHU = amount * (installmentsInYear / 10) * 5%
-            $shuContribution = $loan->amount * ($installmentsInYear / 10) * ($rate / 100);
+            // RUMUS: Pinjaman × (Jumlah Cicilan di Tahun / 10) × 5%
+            // Note: Pembagi 10 sesuai request (menggantikan 12 bulan), asumsi tenor standar 10 bulan?
+            // Jika ingin dinamis sesuai tenor pinjaman, ganti 10 dengan $duration.
+            $divisor = 10; 
+            $shuContribution = $loan->amount * ($installmentsInYear / $divisor) * ($rate / 100);
 
             $memberId = $loan->member_id;
             if (!isset($memberSHU[$memberId])) {
@@ -226,12 +229,17 @@ class ReportController extends Controller
                     'saldo' => $historicalSaldo,
                     'total_loan' => 0,
                     'shu_raw' => 0,
-                    'details' => [] // Debug info
+                    'debug_start_date' => $loan->created_at->format('Y-m-d'), // Debug info
+                    'debug_duration' => $loan->duration,
                 ];
+            } else {
+                // Keep the earliest start date if multiple loans
+                 if ($loan->created_at < $memberSHU[$memberId]['debug_start_date']) {
+                    $memberSHU[$memberId]['debug_start_date'] = $loan->created_at->format('Y-m-d');
+                 }
             }
             $memberSHU[$memberId]['total_loan'] += $loan->amount;
             $memberSHU[$memberId]['shu_raw'] += $shuContribution;
-            $memberSHU[$memberId]['details'][] = "Loan $loan->amount: $installmentsInYear installments";
         }
 
         // Apply rounding (to nearest 500)

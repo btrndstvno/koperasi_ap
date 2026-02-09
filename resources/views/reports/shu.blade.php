@@ -61,6 +61,7 @@
                         <th>Dept</th>
                         <th class="text-end">Saldo Simpanan</th>
                         <th class="text-end">Total Pinjaman</th>
+                        <th class="text-end">Mulai Pinjam</th>
                         <th class="text-end">SHU Hitung</th>
                         <th class="text-end pe-4">SHU Pembulatan</th>
                     </tr>
@@ -73,6 +74,7 @@
                         <td>{{ $shu['dept'] }}</td>
                         <td class="text-end">Rp {{ number_format($shu['saldo'], 0, ',', '.') }}</td>
                         <td class="text-end">Rp {{ number_format($shu['total_loan'], 0, ',', '.') }}</td>
+                        <td class="text-end"><small class="text-muted">{{ \Carbon\Carbon::parse($shu['debug_start_date'])->format('d M Y') }}</small></td>
                         <td class="text-end text-muted">Rp {{ number_format($shu['shu_raw'], 0, ',', '.') }}</td>
                         <td class="text-end fw-bold text-success pe-4">Rp {{ number_format($shu['shu_rounded'], 0, ',', '.') }}</td>
                     </tr>
@@ -80,7 +82,7 @@
                 </tbody>
                 <tfoot class="table-warning">
                     <tr class="fw-bold">
-                        <td colspan="5" class="text-end">Total SHU:</td>
+                        <td colspan="6" class="text-end">Total SHU:</td>
                         <td class="text-end">Rp {{ number_format(collect($shuPreview)->sum('shu_raw'), 0, ',', '.') }}</td>
                         <td class="text-end text-success pe-4">Rp {{ number_format(collect($shuPreview)->sum('shu_rounded'), 0, ',', '.') }}</td>
                     </tr>
