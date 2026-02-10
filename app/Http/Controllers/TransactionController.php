@@ -106,11 +106,10 @@ class TransactionController extends Controller
                         
                      $sisa_pinjaman = $remainingPrincipal;
                      
-                     if ($pot_kop > 0) {
-                         $remaining_installments = (int) ceil($remainingPrincipal / $pot_kop);
-                     } else {
-                         $remaining_installments = $activeLoanInPeriod->duration;
-                     }
+                     // Sisa cicilan = dari progress loan (remaining_principal / cicilan per bulan)
+                     // Menampilkan kondisi saat ini SEBELUM bayar bulan ini
+                     // Setelah save/bayar, remaining_principal berkurang → sisa cicilan otomatis turun
+                     $remaining_installments = $activeLoanInPeriod->remaining_installments;
                      
                      $loan_id = $activeLoanInPeriod->id;
                  }
@@ -184,6 +183,14 @@ class TransactionController extends Controller
                 
             // Final Values
             $final_pot_kop = $existingPotKop ? $existingPotKop->amount_principal : ($activeLoanInPeriod ? $pot_kop : 0);
+            
+            // [FIX] Ensure pot_kop is never 0 if loan is active and no existing transaction
+            if ($activeLoanInPeriod && $final_pot_kop <= 0) {
+                 $final_pot_kop = $activeLoanInPeriod->monthly_installment > 0 
+                    ? $activeLoanInPeriod->monthly_installment 
+                    : $activeLoanInPeriod->monthly_principal;
+            }
+
             $final_iur_kop = $existingIurKop ? $existingIurKop->amount_saving : $iur_kop_default;
             $final_iur_tunai = $existingIurTunai ? $existingIurTunai->amount_saving : 0;
             

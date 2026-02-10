@@ -238,6 +238,4 @@ document.addEventListener('DOMContentLoaded', function() {
     @endif
 });
 </script>
-});
-</script>
 @endpush

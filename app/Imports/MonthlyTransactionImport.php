@@ -368,22 +368,24 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets, With
             $forcePayment = false;
 
             if ($sisaCicilan === 0) {
-                $calculatedSisaCicilan = 1;
+                $calculatedSisaCicilan = 0;
                 $forcePayment = true;
             } else {
                 $calculatedSisaCicilan = $sisaCicilan > 0 ? $sisaCicilan : -1;
             }
             
-            if ($calculatedSisaCicilan <= 0) {
+            // Fallback: hanya jika sisa cicilan tidak diketahui (< 0), bukan 0 (lunas)
+            if ($calculatedSisaCicilan < 0) {
                 if ($sisaPinjaman > 0) {
                     $calculatedSisaCicilan = (int) ceil($sisaPinjaman / $potKop);
                 } elseif ($sisaPinjaman == 0) {
-                    $calculatedSisaCicilan = 1; 
+                    $calculatedSisaCicilan = 0; 
                     $forcePayment = true;
                 }
             }
             
-            if ($calculatedSisaCicilan <= 0) {
+            // Final fallback: jika masih tidak diketahui
+            if ($calculatedSisaCicilan < 0) {
                 $calculatedSisaCicilan = 1; // Default
                 $forcePayment = true;
             }
@@ -494,24 +496,30 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets, With
         if ($member->activeLoans()->exists()) return false;
         
         $duration = 10;
-        $remainingInstallments = max(1, min(10, $remainingInstallments));
+        $remainingInstallments = max(0, min(10, $remainingInstallments));
         $paidInstallments = $duration - $remainingInstallments;
         
         $loanAmount = $monthlyInstallment * $duration;
         
-        // [FIX ISSUE 2] LOGIKA SALDO:
-        // Sisa Pinjaman di Excel (dan Sisa Cicilan) adalah kondisi SETELAH bayar bulan ini.
-        // Karena kita akan membuat Transaksi Pembayaran (yang mengurangi saldo),
+        // [FIX] LOGIKA SALDO:
+        // Sisa Cicilan di Excel adalah kondisi SETELAH bayar bulan ini.
+        // Karena kita akan membuat Transaksi Pembayaran (reduceRemainingPrincipal),
         // Maka saldo awal Loan harus kita naikkan dulu sebesar 1x cicilan.
-        // Saldo Awal = Saldo Akhir Excel + Pembayaran Bulan Ini.
+        // Saldo Awal = (Sisa Cicilan * Cicilan) + Pembayaran Bulan Ini
         
         $remainingPrincipalInExcel = $monthlyInstallment * $remainingInstallments;
         $initialPrincipal = $remainingPrincipalInExcel + $monthlyInstallment;
         
-        // Tanggal approve
+        // [FIX] Tanggal approve: monthsBack = paidInstallments (tanpa -1)
+        // approved_date adalah bulan dimana pinjaman di-approve (sebelum pembayaran pertama)
+        // Contoh: sisa 5x, paid 5x → approved 5 bulan lalu dari bulan transaksi
         $transactionDate = Carbon::parse($this->transactionDate ?: now());
-        $monthsBack = max(0, $paidInstallments - 1);
+        $monthsBack = max(0, $paidInstallments);
         $approvedDate = $transactionDate->copy()->subMonths($monthsBack)->startOfMonth();
+        
+        // [FIX] Jika sisa cicilan = 0 (lunas setelah bayar bulan ini),
+        // buat loan dengan status langsung paid setelah reduceRemainingPrincipal nanti
+        $loanStatus = Loan::STATUS_ACTIVE;
         
         Loan::create([
             'member_id' => $member->id,
@@ -520,7 +528,7 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets, With
             'duration' => $duration,
             'remaining_principal' => $initialPrincipal, // Set lebih tinggi agar nanti dikurangi transaksi
             'monthly_installment' => $monthlyInstallment,
-            'status' => Loan::STATUS_ACTIVE,
+            'status' => $loanStatus,
             'application_date' => $approvedDate,
             'approved_date' => $approvedDate,
         ]);
