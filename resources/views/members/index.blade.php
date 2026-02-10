@@ -127,12 +127,7 @@
                             <a href="{{ route('members.edit', $member) }}?{{ http_build_query(request()->query()) }}" class="btn btn-sm btn-outline-warning btn-action" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form action="{{ route('members.toggle-active', $member) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ $member->is_active ? 'Nonaktifkan anggota ini? Saldo akan ditarik otomatis.' : 'Aktifkan kembali anggota ini?' }}');">
-                                @csrf
-                                <button type="submit" class="btn btn-sm btn-outline-{{ $member->is_active ? 'danger' : 'success' }} btn-action" title="{{ $member->is_active ? 'Nonaktifkan' : 'Aktifkan' }}">
-                                    <i class="bi bi-{{ $member->is_active ? 'person-x' : 'person-check' }}"></i>
-                                </button>
-                            </form>
+                            
                         </td>
                     </tr>
                     @empty

@@ -346,4 +346,49 @@ class LoanController extends Controller
 
         return back()->with('success', 'Pembayaran pinjaman berhasil dicatat.');
     }
+
+    public function writeOff(Request $request, Loan $loan)
+    {
+        // Validasi dasar
+        if ($loan->status !== 'active') {
+            return back()->with('error', 'Hanya pinjaman aktif yang bisa diputihkan.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $remainingAmount = $loan->remaining_principal;
+
+            // 1. Buat Transaksi "Bad Debt Expense" (Pencatatan Kerugian)
+            // Ini penting supaya secara akuntansi uang yang hilang tercatat lari kemana
+            Transaction::create([
+                'member_id' => $loan->member_id,
+                'loan_id' => $loan->id,
+                'transaction_date' => now(),
+                'type' => Transaction::TYPE_LOAN_WRITE_OFF, 
+                'amount_saving' => 0,
+                'amount_principal' => $remainingAmount,
+                'amount_interest' => 0,
+                'total_amount' => $remainingAmount,
+                'payment_method' => 'write_off',
+                'notes' => 'Penghapusan Hutang (Member Keluar/Kabur)',
+            ]);
+
+            // 2. Update Loan menjadi Write Off & Nol-kan sisa
+            $loan->update([
+                'status' => 'write_off',
+                'remaining_principal' => 0, 
+            ]);
+
+            // 3. Nonaktifkan Member (Sesuai permintaan Anda di poin 2)
+            // Karena hutang sudah diputihkan, member sah untuk dinonaktifkan
+            $loan->member->update(['is_active' => false]);
+
+            DB::commit();
+            return back()->with('success', 'Hutang berhasil diputihkan. Member otomatis dinonaktifkan.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal memproses: ' . $e->getMessage());
+        }
+    }
 }

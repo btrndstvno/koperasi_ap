@@ -8,6 +8,7 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
 {
@@ -37,7 +38,6 @@ class TransactionController extends Controller
      * Show bulk transaction form (Input Massal/Gajian).
      * 
      * SISTEM "BUNGA POTONG DI AWAL" + GROUPING BY GROUP_TAG:
-    /**
      * Show bulk transaction form (Input Massal/Gajian).
      * 
      * Logic Updated:
@@ -55,26 +55,21 @@ class TransactionController extends Controller
         $targetMonthEnd = $targetDate->copy()->endOfMonth();
 
         // Get all members with their loans and transactions
-        // Eager load transactions filtered by date for optimization
-        $members = Member::with(['loans', 'transactions' => function ($q) use ($targetMonthEnd) {
+        $members = Member::where('is_active', true)
+        ->with(['loans', 'transactions' => function ($q) use ($targetMonthEnd) {
             $q->where('transaction_date', '<=', $targetMonthEnd->toDateString());
         }])
         ->get()
         ->map(function ($member) use ($targetDate, $targetMonthStart) {
-            // Find loan that is active in the selected period
+            // Find active loan in period (Logic Tetap Sama)
             $activeLoanInPeriod = $member->loans->filter(function($loan) use ($targetDate) {
-                 // Use approved_date if available (preferred), otherwise date created
                  $baseDate = $loan->approved_date 
                     ? \Carbon\Carbon::parse($loan->approved_date) 
                     : \Carbon\Carbon::parse($loan->created_at);
                  
-                 // START DEDUCTION: Next Month after approval (Bulan depan mulai potong)
                  $start = $baseDate->copy()->addMonth()->startOfMonth();
-
-                 // Estimated end date
                  $end = $start->copy()->addMonths($loan->duration - 1)->endOfMonth();
                  
-                 // Loan is candidate if target date is within range
                  return $targetDate->between($start, $end);
             })->first();
 
@@ -84,23 +79,18 @@ class TransactionController extends Controller
             $loan_id = null;
 
             if ($activeLoanInPeriod) {
-                 // Gunakan remaining_principal langsung dari loan (sudah akurat dari import/transaksi)
                  $remainingPrincipal = $activeLoanInPeriod->remaining_principal;
                  
-                 // Jika masih ada sisa hutang, maka tampilkan tagihan
-                 if ($remainingPrincipal > 100) { // Tolerance for floating point
+                 if ($remainingPrincipal > 100) { 
                      $pot_kop = $activeLoanInPeriod->monthly_installment > 0 
                         ? $activeLoanInPeriod->monthly_installment 
                         : $activeLoanInPeriod->monthly_principal;
                         
                      $sisa_pinjaman = $remainingPrincipal;
                      
-                     // Hitung sisa cicilan dari remaining_principal / monthly_installment
-                     // Contoh: Rizki progress 50% = sisa Rp 5.000.000 / Rp 1.000.000 = 5 cicilan
                      if ($pot_kop > 0) {
                          $remaining_installments = (int) ceil($remainingPrincipal / $pot_kop);
                      } else {
-                         // Fallback ke tenor jika tidak ada monthly_installment
                          $remaining_installments = $activeLoanInPeriod->duration;
                      }
                      
@@ -108,8 +98,7 @@ class TransactionController extends Controller
                  }
             }
 
-            // Hitung Saldo Historis (Sampai akhir bulan terpilih)
-            // Ini termasuk transaksi yang mungkin SUDAH diinput di bulan ini
+            // Hitung Saldo Historis (Logic Tetap Sama)
             $depositTypes = [
                 Transaction::TYPE_SAVING_DEPOSIT,
                 Transaction::TYPE_SAVING_INTEREST,
@@ -126,14 +115,11 @@ class TransactionController extends Controller
 
             $saldoHistoris = $histDeposits - $histWithdraws;
             
-            // Jika tidak ada transaksi sama sekali, gunakan savings_balance dari member (data import)
-            // Ini penting untuk member yang baru diimport dari Excel
             if ($member->transactions->isEmpty() && $member->savings_balance > 0) {
                 $saldoHistoris = (float) $member->savings_balance;
             }
 
-            // Logic Iuran Wajib Otomatis (Recurring)
-            // 1. Ambil transaksi iuran (deduction) terakhir
+            // Logic Iuran Wajib (Logic Tetap Sama)
             $lastDeduction = $member->transactions
                 ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
                 ->where('payment_method', 'deduction')
@@ -144,7 +130,6 @@ class TransactionController extends Controller
             if ($lastDeduction) {
                 $iur_kop_val = $lastDeduction->total_amount;
             } else {
-                // 2. Jika belum ada, ambil setoran awal (transaksi simpanan pertama)
                 $firstDeposit = $member->transactions
                     ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
                     ->sortBy('transaction_date')
@@ -161,7 +146,8 @@ class TransactionController extends Controller
                 'name' => $member->name,
                 'group_tag' => $member->group_tag ?? 'Office',
                 'dept' => $member->dept,
-                'csd' => $member->group_tag ?? '-', 
+                // [FIX] Tampilkan CSD asli, fallback ke dept/tag jika kosong
+                'csd' => !empty($member->csd) ? $member->csd : ($member->dept ?? '-'), 
                 'savings_balance' => (float) $saldoHistoris,
                 'has_loan' => $loan_id !== null,
                 'loan_id' => $loan_id,
@@ -174,7 +160,7 @@ class TransactionController extends Controller
         })
         ->sortBy('nik_numeric');
 
-        // Group by group_tag dengan urutan: Manager, Bangunan, CSD, Office
+        // Grouping (Logic Tetap Sama)
         $groupOrder = ['Manager' => 1, 'Bangunan' => 2, 'CSD' => 3, 'Office' => 4];
         
         $groupedByTag = $members->groupBy('group_tag')->map(function ($tagMembers, $tagName) {
@@ -220,6 +206,9 @@ class TransactionController extends Controller
      */
     public function storeBulk(Request $request)
     {
+        // [LOG] Debug jumlah data yang masuk dari form/JSON
+        Log::info("Bulk Store Start. Input Count: " . count($request->input('transactions', [])));
+
         $validated = $request->validate([
             'transaction_date' => 'required|date',
             'transactions' => 'required|array|min:1',
@@ -233,9 +222,6 @@ class TransactionController extends Controller
 
         $transactionDate = $validated['transaction_date'];
         $dateObj = Carbon::parse($transactionDate);
-        
-        // Hapus global check supaya bisa simpan per-departemen secara bertahap
-        // Validation check akan dilakukan per-member di dalam loop
         
         $results = [
             'processed' => 0,
@@ -256,8 +242,8 @@ class TransactionController extends Controller
                 $member = Member::find($memberId);
                 if (!$member) continue;
 
-                // Check duplicate transaction for this member in this month
-                // Cek apakah member ini SUDAH punya transaksi 'payroll_deduction' di bulan yang sama
+                // 1. Cek Duplicate
+                // Mencegah input ganda untuk member yang sama di bulan yang sama (khusus potong gaji)
                 $alreadyExists = Transaction::where('member_id', $member->id)
                     ->whereYear('transaction_date', $dateObj->year)
                     ->whereMonth('transaction_date', $dateObj->month)
@@ -266,28 +252,35 @@ class TransactionController extends Controller
 
                 if ($alreadyExists) {
                     $results['duplicate']++;
-                    continue; // Skip member ini
+                    continue; 
                 }
 
+                // Ambil nilai input (default 0 jika kosong)
                 $potKop = (float) ($data['pot_kop'] ?? 0);
                 $iurKop = (float) ($data['iur_kop'] ?? 0);
                 $iurTunai = (float) ($data['iur_tunai'] ?? 0);
                 $notes = $data['notes'] ?? '';
-                $totalAmount = $potKop + $iurKop + $iurTunai;
-
-                // Skip if all amounts are 0
+                
+                // [MODIFIKASI] Hapus pengecekan total <= 0
+                // Agar data 0 tetap diproses dan masuk laporan
+                /* $totalAmount = $potKop + $iurKop + $iurTunai;
                 if ($totalAmount <= 0) {
                     $results['skipped']++;
                     continue;
                 }
+                */
 
-                // Process Iuran Koperasi (Simpanan - Potong Gaji)
-                if ($iurKop > 0) {
-                    $member->increment('savings_balance', $iurKop);
+                // 2. Proses Iuran Koperasi (Simpanan Wajib - Potong Gaji)
+                // [MODIFIKASI] Gunakan >= 0 agar nilai 0 tetap dibuatkan record transaksinya
+                if ($iurKop >= 0) {
+                    // Hanya update saldo member jika ada uangnya (> 0)
+                    if ($iurKop > 0) {
+                        $member->increment('savings_balance', $iurKop);
+                    }
 
                     Transaction::create([
                         'member_id' => $member->id,
-                        'loan_id' => null,
+                        'loan_id' => null, // Iuran tidak terikat loan
                         'transaction_date' => $transactionDate,
                         'type' => Transaction::TYPE_SAVING_DEPOSIT,
                         'amount_saving' => $iurKop,
@@ -295,16 +288,16 @@ class TransactionController extends Controller
                         'amount_interest' => 0,
                         'total_amount' => $iurKop,
                         'payment_method' => 'payroll_deduction',
-                        'notes' => $notes ?: 'Iuran simpanan - potong gaji',
+                        'notes' => $notes ?: ($iurKop == 0 ? 'Tidak ada potongan' : 'Iuran simpanan - potong gaji'),
                     ]);
 
                     $results['total_iur'] += $iurKop;
                 }
 
-                // Process Iuran Tunai (Simpanan - Cash)
+                // 3. Proses Iuran Tunai (Bayar Cash)
+                // Tetap gunakan > 0 karena kalau cash 0 berarti memang tidak ada transaksi cash
                 if ($iurTunai > 0) {
                     $member->increment('savings_balance', $iurTunai);
-
                     Transaction::create([
                         'member_id' => $member->id,
                         'loan_id' => null,
@@ -317,17 +310,17 @@ class TransactionController extends Controller
                         'payment_method' => 'cash',
                         'notes' => $notes ?: 'Iuran simpanan - tunai',
                     ]);
-
                     $results['total_iur_tunai'] += $iurTunai;
                 }
 
-                // Process Potongan Koperasi (Cicilan Pinjaman)
+                // 4. Proses Potongan Pinjaman (Cicilan)
+                // Tetap gunakan > 0 agar tidak membuat record pelunasan palsu
                 if ($potKop > 0) {
                     $loan = null;
-                    
                     if (!empty($data['loan_id'])) {
                         $loan = Loan::find($data['loan_id']);
                     } else {
+                        // Auto-detect pinjaman aktif jika ID tidak dikirim
                         $loan = $member->activeLoans()->first();
                     }
 
@@ -347,7 +340,6 @@ class TransactionController extends Controller
                         'payment_method' => 'payroll_deduction',
                         'notes' => $notes ?: 'Cicilan pinjaman - potong gaji',
                     ]);
-
                     $results['total_pot'] += $potKop;
                 }
 
@@ -356,17 +348,31 @@ class TransactionController extends Controller
 
             DB::commit();
 
+            // 5. Response JSON (Untuk AJAX/JavaScript)
+            if ($request->wantsJson()) {
+                 $totalAll = $results['total_pot'] + $results['total_iur'] + $results['total_iur_tunai'];
+                 $msg = "Berhasil! {$results['processed']} anggota diproses. Duplicate: {$results['duplicate']}. Total: Rp " . number_format($totalAll, 0, ',', '.');
+                 session()->flash('success', $msg); 
+                 return response()->json(['success' => true, 'message' => $msg]);
+            }
+
+            // Fallback Redirect (Untuk submit biasa)
             $totalAll = $results['total_pot'] + $results['total_iur'] + $results['total_iur_tunai'];
             return redirect()->route('transactions.bulk.create')
                 ->with('success', "Berhasil! {$results['processed']} anggota diproses. Total: Rp " . number_format($totalAll, 0, ',', '.'));
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("Bulk Store Error: " . $e->getMessage());
+            
+            if ($request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            }
+            
             return back()->with('error', 'Gagal menyimpan: ' . $e->getMessage())
                 ->withInput();
         }
     }
-
     /**
      * Delete a transaction with auto-rollback.
      * 

@@ -58,7 +58,9 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/members-search', [MemberController::class, 'searchMembers'])->name('members.search');
     Route::post('/members/{member}/add-saving', [MemberController::class, 'addSaving'])->name('members.add-saving');
     Route::post('/members/{member}/withdraw-saving', [MemberController::class, 'withdrawSaving'])->name('members.withdraw-saving');
-    Route::post('/members/{member}/toggle-active', [MemberController::class, 'toggleActive'])->name('members.toggle-active');
+    Route::post('/members/{member}/activate', [MemberController::class, 'activate'])->name('members.activate');
+    Route::post('/members/{member}/deactivate', [MemberController::class, 'deactivate'])->name('members.deactivate');
+    Route::get('/members/inactive', [App\Http\Controllers\MemberController::class, 'inactiveIndex'])->name('members.inactive');
 
     // Loans Management
     Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
@@ -70,6 +72,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::put('/loans/{loan}/update-amount', [LoanController::class, 'updateAmount'])->name('loans.update-amount');
     Route::post('/loans/{loan}/reject', [LoanController::class, 'reject'])->name('loans.reject');
     Route::get('/loans/{loan}/print', [LoanController::class, 'print'])->name('loans.print');
+    Route::post('/loans/{loan}/write-off', [LoanController::class, 'writeOff'])->name('loans.write-off');
 
     // Withdrawals Management (Admin processes all withdrawals)
     Route::get('/withdrawals', [WithdrawalController::class, 'index'])->name('withdrawals.index');

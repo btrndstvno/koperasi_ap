@@ -71,6 +71,41 @@
                 </div>
                 @endif
             </div>
+            {{-- Area Write Off --}}
+            @if($loan->status === 'active')
+                <div class="card border-danger mt-4 shadow-sm">
+                    <div class="card-header bg-danger text-white fw-bold">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Area Berbahaya (Penghapusan Hutang)
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-9">
+                                <h5 class="text-danger">Member Kabur / Keluar dengan Sisa Hutang?</h5>
+                                <p class="mb-0 text-muted">
+                                    Gunakan fitur ini <strong>HANYA</strong> jika sisa hutang sebesar 
+                                    <span class="fw-bold text-dark">Rp {{ number_format($loan->remaining_principal, 0, ',', '.') }}</span> 
+                                    benar-benar tidak bisa ditagih lagi. <br>
+                                    Tindakan ini akan:
+                                    <ul class="mb-0 small">
+                                        <li>Menganggap lunas sisa hutang (sebagai kerugian koperasi).</li>
+                                        <li>Mengubah status pinjaman menjadi <strong>Write Off</strong>.</li>
+                                        <li>Menonaktifkan member secara otomatis (hilang dari input massal).</li>
+                                    </ul>
+                                </p>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <form action="{{ route('loans.write-off', $loan->id) }}" method="POST" 
+                                    onsubmit="return confirm('PERINGATAN KERAS:\n\nApakah Anda yakin ingin memutihkan hutang ini?\n\n1. Sisa hutang akan dianggap HANGUS.\n2. Member akan di-NONAKTIFKAN.\n3. Tindakan tidak bisa dibatalkan.\n\nLanjutkan?');">
+                                    @csrf
+                                    <button type="submit" class="btn btn-danger w-100">
+                                        <i class="bi bi-trash3 me-1"></i> Putihkan & Nonaktifkan
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
             @if(!$loan->isPending())
             <div class="col-md-4">
                 <div class="text-center">

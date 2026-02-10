@@ -370,7 +370,13 @@
                         <i class="bi bi-speedometer"></i> Ringkasan
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ route('members.inactive') }}">
+                        <i class="bi bi-person-x"></i> Anggota Nonaktif
+                    </a>
+                </li>
             </ul>
+            
             
             <div class="sidebar-heading">Pengaturan</div>
             <ul class="nav flex-column">

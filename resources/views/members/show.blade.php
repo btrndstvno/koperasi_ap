@@ -6,7 +6,6 @@
 @endsection
 
 @section('content')
-<!-- Member Header -->
 <div class="card mb-4">
     <div class="card-body">
         <div class="row align-items-center">
@@ -24,6 +23,11 @@
                         <span class="badge bg-primary">Bulanan</span>
                     @else
                         <span class="badge bg-warning text-dark">Mingguan</span>
+                    @endif
+                    
+                    {{-- Status Badge --}}
+                    @if(!$member->is_active)
+                        <span class="badge bg-danger ms-1">INACTIVE</span>
                     @endif
                 </p>
                 <div class="d-flex gap-4">
@@ -43,17 +47,35 @@
             </div>
             <div class="col-auto">
                 <div class="d-flex gap-2">
-                    <!-- <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSavingModal">
-                        <i class="bi bi-plus-circle me-1"></i> Tambah Simpanan
-                    </button> -->
+                    {{-- LOGIKA TOMBOL STATUS SMART (BERTUMPUK) --}}
+                    @if($member->is_active)
+                        {{-- KONDISI 1: MEMBER AKTIF -> Muncul Tombol NONAKTIFKAN (Merah) --}}
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deactivateModal">
+                            <i class="bi bi-person-x-fill me-1"></i> Proses Keluar / Nonaktifkan
+                        </button>
+                    @else
+                        {{-- KONDISI 2: MEMBER TIDAK AKTIF -> Muncul Tombol AKTIFKAN (Hijau) --}}
+                        <form action="{{ route('members.activate', $member->id) }}" method="POST" class="d-inline">
+                            @csrf
+                            <button type="submit" class="btn btn-success" onclick="return confirm('Apakah Anda yakin ingin mengaktifkan kembali member ini? Member akan muncul kembali di daftar gaji/input massal.');">
+                                <i class="bi bi-person-check-fill me-1"></i> Aktifkan Kembali
+                            </button>
+                        </form>
+                    @endif
+
+                    {{-- Tombol Tarik Simpanan --}}
                     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#withdrawSavingModal">
                         <i class="bi bi-dash-circle me-1"></i> Tarik Simpanan
                     </button>
-                    @if(!$member->hasActiveLoan())
+
+                    {{-- Tombol Pinjaman Baru (Hanya jika aktif & tidak punya pinjaman aktif) --}}
+                    @if(!$member->hasActiveLoan() && $member->is_active)
                     <a href="{{ route('loans.create', ['member_id' => $member->id]) }}" class="btn btn-primary">
                         <i class="bi bi-cash me-1"></i> Buat Pinjaman Baru
                     </a>
                     @endif
+
+                    {{-- Tombol Edit --}}
                     <a href="{{ route('members.edit', $member) }}" class="btn btn-outline-secondary">
                         <i class="bi bi-pencil me-1"></i> Edit
                     </a>
@@ -63,7 +85,6 @@
     </div>
 </div>
 
-<!-- Active Loan Summary -->
 @if($activeLoan)
 <div class="card mb-4 border-danger">
     <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
@@ -133,7 +154,6 @@
 </div>
 @endif
 
-<!-- Tabs -->
 <ul class="nav nav-tabs" id="memberTabs" role="tablist">
     <li class="nav-item">
         <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#loans-tab" type="button">
@@ -148,7 +168,6 @@
 </ul>
 
 <div class="tab-content mt-3">
-    <!-- Tab Riwayat Pinjaman -->
     <div class="tab-pane fade show active" id="loans-tab">
         <div class="card">
             <div class="card-body p-0">
@@ -196,7 +215,6 @@
         </div>
     </div>
 
-    <!-- Tab Mutasi Simpanan -->
     <div class="tab-pane fade" id="savings-tab">
         <div class="card">
             <div class="card-body p-0">
@@ -256,45 +274,6 @@
     </div>
 </div>
 
-<!-- Modal Tambah Simpanan
-<div class="modal fade" id="addSavingModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="{{ route('members.add-saving', $member) }}" method="POST">
-                @csrf
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Tambah Simpanan</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label form-label-required">Nominal</label>
-                        <div class="input-group">
-                            <span class="input-group-text">Rp</span>
-                            <input type="number" name="amount" class="form-control input-currency" required min="1000" step="1000">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label form-label-required">Tanggal</label>
-                        <input type="date" name="transaction_date" class="form-control" required value="{{ date('Y-m-d') }}">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Catatan</label>
-                        <input type="text" name="notes" class="form-control" placeholder="Opsional">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-success">
-                        <i class="bi bi-check me-1"></i> Simpan
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div> -->
-
-<!-- Modal Tarik Simpanan -->
 <div class="modal fade" id="withdrawSavingModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -336,7 +315,6 @@
     </div>
 </div>
 
-<!-- Modal Bayar Angsuran -->
 @if($activeLoan)
 <div class="modal fade" id="repayLoanModal" tabindex="-1">
     <div class="modal-dialog">
@@ -399,9 +377,60 @@
     </div>
 </div>
 @endif
+
+{{-- MODAL KONFIRMASI DEACTIVATE (SMART LOGIC) --}}
+<div class="modal fade" id="deactivateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Nonaktif</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Anda akan menonaktifkan member <strong>{{ $member->name }}</strong>.</p>
+
+                @php
+                    $activeLoans = $member->loans()->where('status', 'active')->get();
+                    $totalDebt = $activeLoans->sum('remaining_principal');
+                @endphp
+
+                @if($totalDebt > 0)
+                    <div class="alert alert-warning border-warning">
+                        <strong>PERHATIAN: Member Masih Punya Hutang!</strong><br>
+                        Total: <span class="text-danger fw-bold">Rp {{ number_format($totalDebt, 0, ',', '.') }}</span>
+                        <hr class="my-1">
+                        <small class="text-dark">
+                            Jika dilanjutkan, hutang akan dianggap <strong>LUNAS (Write Off)</strong> dan dicatat sebagai kerugian.
+                        </small>
+                    </div>
+                    <p class="text-danger fw-bold small mb-0">Tindakan ini tidak bisa dibatalkan!</p>
+                @else
+                    <div class="alert alert-info py-2">
+                        <small><i class="bi bi-info-circle"></i> Member tidak memiliki tanggungan hutang.</small>
+                    </div>
+                @endif
+                <div class="modal-body">
+                    <div class="mb-3 mt-3">
+                        <label class="form-label fw-bold">Alasan Nonaktif / Keluar <span class="text-danger">*</span></label>
+                        <textarea name="reason" class="form-control" rows="3" placeholder="Contoh: Resign, Pensiun, Diberhentikan, dll..." required></textarea>
+                        <div class="form-text">Alasan ini akan tercatat di riwayat anggota.</div>
+                    </div>
+                    <p class="mt-2 text-muted small">Tindakan ini akan menghapus member dari daftar Input Massal Gajian.</p>
+                </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <form action="{{ route('members.deactivate', $member->id) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="btn btn-danger">
+                        {{ $totalDebt > 0 ? 'Putihkan Hutang & Keluar' : 'Ya, Nonaktifkan' }}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 {{-- Script khusus member detail dapat ditambahkan di sini jika perlu --}}
-{{-- Note: Delete confirmation sudah dihandle secara global di layout app.blade.php --}}
 @endpush

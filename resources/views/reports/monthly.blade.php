@@ -73,7 +73,7 @@
     </div>
 </div>
 
-<!-- Report Title for Print -->
+<!-- Report Title buat Print -->
 <div class="d-none d-print-block text-center mb-4">
     <h3>KOPERASI ARTHA PRIMA</h3>
     <h4>LAPORAN TRANSAKSI BULAN {{ strtoupper(\Carbon\Carbon::create()->month($month)->translatedFormat('F')) }} {{ $year }}</h4>

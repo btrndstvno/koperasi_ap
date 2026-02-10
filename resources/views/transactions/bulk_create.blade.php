@@ -40,12 +40,6 @@
                 <label class="form-label fw-bold">Tanggal Transaksi</label>
                 <input type="date" id="transactionDateInput" class="form-control" value="{{ $transactionDate }}">
             </div>
-            <!-- <div class="col-md-5">
-                <div class="alert alert-info mb-0 py-2">
-                    <i class="bi bi-info-circle me-1"></i>
-                    <strong>Info:</strong> POT KOP = Cicilan Pinjaman | IUR KOP = Potong Gaji | IUR TUNAI = Bayar Cash
-                </div>
-            </div> -->
         </div>
     </div>
 </div>
@@ -258,69 +252,42 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const forms = document.querySelectorAll('.bulk-group-form');
     const dateInput = document.getElementById('transactionDateInput');
-    const dateHiddens = document.querySelectorAll('.transaction-date-hidden');
-
-    // Simpan posisi tab terakhir agar tidak reset saat refresh/save
-    const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
-    tabEls.forEach(tabEl => {
-        tabEl.addEventListener('shown.bs.tab', function (event) {
-            localStorage.setItem('activeBulkTab', event.target.id);
-        });
-    });
-
-    // Restore posisi tab saat halaman dimuat ulang
-    const lastActiveTab = localStorage.getItem('activeBulkTab');
-    if (lastActiveTab) {
-        const tabTrigger = document.querySelector(`#${lastActiveTab}`);
-        if (tabTrigger) {
-            const tab = new bootstrap.Tab(tabTrigger);
-            tab.show();
-        }
-    }
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'); // [FIX] Safe access
     
-    // Sync date input with hidden fields
-    dateInput.addEventListener('change', function() {
-        const newVal = this.value;
-        dateHiddens.forEach(input => input.value = newVal);
-    });
-
-    // Format number to Indonesian
+    // Format Rupiah
     function formatNumber(num) {
         return new Intl.NumberFormat('id-ID').format(num);
     }
 
-    // Helper: secure slug generation (simple version to match PHP Str::slug mostly)
+    // Helper: secure slug generation
     function toSlug(text) {
         return text.toString().toLowerCase()
-            .replace(/\s+/g, '-')           // Replace spaces with -
-            .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
-            .replace(/\-\-+/g, '-')         // Replace multiple - with single -
-            .replace(/^-+/, '')             // Trim - from start of text
-            .replace(/-+$/, '');            // Trim - from end of text
+            .replace(/\s+/g, '-')
+            .replace(/[^\w\-]+/g, '')
+            .replace(/\-\-+/g, '-')
+            .replace(/^-+/, '')
+            .replace(/-+$/, '');
     }
 
-    // Calculate single row total
+    // 1. Kalkulasi Total Baris (Real-time calculation)
     function calculateRowTotal(rowIndex) {
         const potInput = document.querySelector(`input[name="transactions[${rowIndex}][pot_kop]"]`);
         const iurInput = document.querySelector(`input[name="transactions[${rowIndex}][iur_kop]"]`);
         const iurTunaiInput = document.querySelector(`input[name="transactions[${rowIndex}][iur_tunai]"]`);
         const jumlahSpan = document.querySelector(`.row-jumlah[data-row="${rowIndex}"]`);
         
-        if (!potInput || !iurInput || !iurTunaiInput || !jumlahSpan) return { pot: 0, iur: 0, iurTunai: 0, jumlah: 0 };
+        if (!potInput || !iurInput || !iurTunaiInput || !jumlahSpan) return;
         
-        const pot = parseInt(potInput.value) || 0;
-        const iur = parseInt(iurInput.value) || 0;
-        const iurTunai = parseInt(iurTunaiInput.value) || 0;
+        const pot = parseFloat(potInput.value) || 0;
+        const iur = parseFloat(iurInput.value) || 0;
+        const iurTunai = parseFloat(iurTunaiInput.value) || 0;
         const jumlah = pot + iur + iurTunai;
         
         jumlahSpan.textContent = formatNumber(jumlah);
-        
-        return { pot, iur, iurTunai, jumlah };
     }
 
-    // Calculate subtotal for a tag group
+    // 2. Kalkulasi Subtotal Group
     function calculateTagSubtotal(tagName) {
         const potInputs = document.querySelectorAll(`input.input-pot[data-tag="${tagName}"]`);
         const iurInputs = document.querySelectorAll(`input.input-iur[data-tag="${tagName}"]`);
@@ -328,13 +295,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         let totalPot = 0, totalIur = 0, totalIurTunai = 0;
         
-        potInputs.forEach(input => totalPot += parseInt(input.value) || 0);
-        iurInputs.forEach(input => totalIur += parseInt(input.value) || 0);
-        iurTunaiInputs.forEach(input => totalIurTunai += parseInt(input.value) || 0);
+        potInputs.forEach(input => totalPot += parseFloat(input.value) || 0);
+        iurInputs.forEach(input => totalIur += parseFloat(input.value) || 0);
+        iurTunaiInputs.forEach(input => totalIurTunai += parseFloat(input.value) || 0);
         
         const totalJumlah = totalPot + totalIur + totalIurTunai;
         
-        // Update subtotal display in Table Footer (tfoot)
         const subtotalPot = document.querySelector(`.subtotal-pot[data-tag="${tagName}"]`);
         const subtotalIur = document.querySelector(`.subtotal-iur[data-tag="${tagName}"]`);
         const subtotalIurTunai = document.querySelector(`.subtotal-iur-tunai[data-tag="${tagName}"]`);
@@ -345,7 +311,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (subtotalIurTunai) subtotalIurTunai.textContent = formatNumber(totalIurTunai);
         if (subtotalJumlah) subtotalJumlah.textContent = formatNumber(totalJumlah);
 
-        // Update Summary row next to Button
         const slug = toSlug(tagName);
         const summPot = document.getElementById(`totalPot-${slug}`);
         const summIur = document.getElementById(`totalIur-${slug}`);
@@ -356,11 +321,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (summIur) summIur.textContent = 'Rp ' + formatNumber(totalIur);
         if (summTunai) summTunai.textContent = 'Rp ' + formatNumber(totalIurTunai);
         if (summJml) summJml.textContent = 'Rp ' + formatNumber(totalJumlah);
-        
-        return { pot: totalPot, iur: totalIur, iurTunai: totalIurTunai, jumlah: totalJumlah };
     }
 
-    // Add event listeners to all editable inputs
+    // Event Listeners
     document.querySelectorAll('.input-iur, .input-iur-tunai').forEach(input => {
         ['input', 'change'].forEach(eventType => {
             input.addEventListener(eventType, function() {
@@ -372,66 +335,124 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // Form submission with SweetAlert (Per Form/Tab)
+    // 3. LOGIC SIMPAN VIA JSON
+    const forms = document.querySelectorAll('.bulk-group-form');
+    
     forms.forEach(form => {
         form.addEventListener('submit', function(e) {
-            e.preventDefault();
+            e.preventDefault(); 
             
             const tagName = this.getAttribute('data-tag');
             const slug = toSlug(tagName);
+            const grandTotalText = document.getElementById(`totalJumlah-${slug}`)?.textContent || '0';
             
-            // Get totals from summary elements
-            const potTotal = document.getElementById(`totalPot-${slug}`)?.textContent || '0';
-            const iurTotal = document.getElementById(`totalIur-${slug}`)?.textContent || '0';
-            const iurTunaiTotal = document.getElementById(`totalIurTunai-${slug}`)?.textContent || '0';
-            const grandTotal = document.getElementById(`totalJumlah-${slug}`)?.textContent || '0';
-            
-            if (grandTotal === 'Rp 0' || grandTotal === '0') {
-              Swal.fire({
-                  icon: 'warning',
-                  title: 'Data Kosong',
-                  text: 'Tidak ada nilai transaksi untuk disimpan.'
-              });
-              return;
-            }
-
             Swal.fire({
                 title: `Simpan Transaksi ${tagName}?`,
-                html: `
-                    <div class="text-start">
-                        <p><strong>Tanggal:</strong> ${dateInput.value}</p>
-                        <hr>
-                        <p><strong>Total POT KOP:</strong> ${potTotal}</p>
-                        <p><strong>Total IUR KOP:</strong> ${iurTotal}</p>
-                        <p><strong>Total IUR TUNAI:</strong> ${iurTunaiTotal}</p>
-                        <hr>
-                        <p class="fs-5"><strong>TOTAL:</strong> <span class="text-primary">${grandTotal}</span></p>
-                    </div>
-                `,
+                html: `Pastikan data benar. Total: <span class="text-primary fw-bold">${grandTotalText}</span>`,
                 icon: 'question',
                 showCancelButton: true,
-                confirmButtonColor: '#0d6efd',
-                cancelButtonColor: '#6c757d',
-                confirmButtonText: '<i class="bi bi-check-circle me-1"></i> Ya, Simpan!',
-                cancelButtonText: 'Batal',
-                reverseButtons: true
+                confirmButtonText: 'Ya, Simpan!',
+                confirmButtonColor: '#0d6efd'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Mohon Tunggu...',
-                        html: 'Sedang memproses...',
-                        allowOutsideClick: false,
-                        showConfirmButton: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-                    
-                    form.submit();
+                    submitViaJson(form, tagName);
                 }
             });
         });
     });
+
+    function submitViaJson(formElement, tagName) {
+        Swal.fire({
+            title: 'Menyimpan Data...',
+            text: 'Mohon tunggu, sedang memproses data massal.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        const transactions = [];
+        const rows = formElement.querySelectorAll('tbody tr');
+        
+        rows.forEach(row => {
+            const rowIndex = row.getAttribute('data-row');
+            const memberId = formElement.querySelector(`input[name="transactions[${rowIndex}][member_id]"]`)?.value;
+            const loanId = formElement.querySelector(`input[name="transactions[${rowIndex}][loan_id]"]`)?.value;
+            const potKop = formElement.querySelector(`input[name="transactions[${rowIndex}][pot_kop]"]`)?.value || 0;
+            const iurKop = formElement.querySelector(`input[name="transactions[${rowIndex}][iur_kop]"]`)?.value || 0;
+            const iurTunai = formElement.querySelector(`input[name="transactions[${rowIndex}][iur_tunai]"]`)?.value || 0;
+            const notes = formElement.querySelector(`input[name="transactions[${rowIndex}][notes]"]`)?.value || '';
+
+            if (memberId) {
+                transactions.push({
+                    member_id: memberId,
+                    loan_id: loanId,
+                    pot_kop: potKop,
+                    iur_kop: iurKop,
+                    iur_tunai: iurTunai,
+                    notes: notes
+                });
+            }
+        });
+
+        fetch("{{ route('transactions.bulk.store') }}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-CSRF-TOKEN": csrfToken
+            },
+            body: JSON.stringify({
+                transaction_date: dateInput.value,
+                transactions: transactions
+            })
+        })
+        .then(async response => {
+            const isJson = response.headers.get('content-type')?.includes('application/json');
+            const data = isJson ? await response.json() : null;
+
+            if (!response.ok) {
+                // Handle Validation Error (422) atau Server Error (500)
+                const errorMsg = (data && data.message) ? data.message : 'Terjadi kesalahan di server';
+                throw new Error(errorMsg);
+            }
+
+            return data;
+        })
+        .then(data => {
+            if (data.success) {
+                Swal.fire({
+                    title: 'Berhasil!',
+                    text: data.message,
+                    icon: 'success'
+                }).then(() => {
+                    location.reload(); // Refresh halaman setelah sukses
+                });
+            } else {
+                // Jika success: false tapi status 200 (jarang terjadi)
+                Swal.fire('Gagal', data.message || 'Gagal menyimpan data', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire({
+                title: 'Gagal',
+                text: error.message || 'Terjadi kesalahan saat menyimpan data.',
+                icon: 'error'
+            });
+        });
+    }
+
+    // Restore tabs logic
+    const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
+    tabEls.forEach(tabEl => {
+        tabEl.addEventListener('shown.bs.tab', function (event) {
+            localStorage.setItem('activeBulkTab', event.target.id);
+        });
+    });
+    const lastActiveTab = localStorage.getItem('activeBulkTab');
+    if (lastActiveTab) {
+        const tabTrigger = document.querySelector(`#${lastActiveTab}`);
+        if (tabTrigger) { const tab = new bootstrap.Tab(tabTrigger); tab.show(); }
+    }
 });
 </script>
 @endpush

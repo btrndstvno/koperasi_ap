@@ -321,25 +321,149 @@ class MemberController extends Controller
     /**
      * Toggle member active status
      */
-    public function toggleActive(Request $request, Member $member)
+    public function activate(Member $member)
     {
-        if ($member->is_active) {
-            // Check if member has active loans before deactivating
-            if ($member->activeLoans()->exists()) {
-                return back()->with('error', 'Tidak dapat menonaktifkan anggota yang masih memiliki pinjaman aktif. Lunasi pinjaman terlebih dahulu.');
+        if ($member->is_active) return back();
+
+        // Reset alasan saat diaktifkan kembali
+        $member->update([
+            'is_active' => true,
+            'deactivation_reason' => null,
+            'deactivation_date' => null,
+        ]);
+
+        return back()->with('success', 'Member diaktifkan kembali.');
+    }
+    public function deactivate(Request $request, Member $member)
+    {
+        $request->validate([
+        'reason' => 'required|string|max:500', // Wajib diisi
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $reason = $request -> reason;
+            $notes = "Alasan Nonaktif: " . $reason;
+
+            // 1. Ambil Data Simpanan & Hutang
+            $totalSavings = $member->savings_balance;
+            $activeLoans = $member->loans()->where('status', 'active')->get();
+            $totalDebt = $activeLoans->sum('remaining_principal');
+            $notes = 'Proses Keluar/Nonaktif Member';
+
+            // 2. LOGIKA PELUNASAN (NETTING)
+            if ($totalDebt > 0) {
+                // Skenario A: Punya Hutang
+                
+                // Gunakan simpanan untuk bayar hutang satu per satu
+                foreach ($activeLoans as $loan) {
+                    if ($totalSavings <= 0) break; // Simpanan sudah habis
+
+                    $debtAmount = $loan->remaining_principal;
+                    $payAmount = min($totalSavings, $debtAmount); // Bayar maksimal sebesar simpanan yg ada
+
+                    // Buat Transaksi Pembayaran dari Simpanan
+                    Transaction::create([
+                        'member_id' => $member->id,
+                        'loan_id' => $loan->id,
+                        'transaction_date' => now(),
+                        'type' => Transaction::TYPE_LOAN_REPAYMENT, // Anggap pembayaran sah
+                        'amount_principal' => $payAmount,
+                        'total_amount' => $payAmount,
+                        'payment_method' => 'other', // Metode potong simpanan
+                        'notes' => "$notes (Potong Simpanan)",
+                    ]);
+
+                    // Update Saldo & Hutang
+                    $loan->reduceRemainingPrincipal($payAmount);
+                    $member->decrement('savings_balance', $payAmount);
+                    
+                    $totalSavings -= $payAmount; // Sisa simpanan berkurang
+                }
+
+                // Cek Sisa Hutang Setelah Potong Simpanan
+                // Jika masih ada sisa hutang (berarti simpanan kurang), lakukan WRITE OFF
+                $remainingDebtLoans = $member->loans()->where('status', 'active')->where('remaining_principal', '>', 0)->get();
+                
+                foreach ($remainingDebtLoans as $loan) {
+                    $sisa = $loan->remaining_principal;
+                    
+                    // Catat Write Off
+                    Transaction::create([
+                        'member_id' => $member->id,
+                        'loan_id' => $loan->id,
+                        'transaction_date' => now(),
+                        'type' => Transaction::TYPE_LOAN_WRITE_OFF,
+                        'amount_principal' => $sisa,
+                        'total_amount' => $sisa,
+                        'payment_method' => 'write_off',
+                        'notes' => "$notes (Write Off Sisa Hutang)",
+                    ]);
+
+                    $loan->update([
+                        'status' => 'write_off',
+                        'remaining_principal' => 0
+                    ]);
+                }
             }
-            
-            $withdrawnAmount = $member->deactivate();
-            
-            $message = 'Anggota berhasil dinonaktifkan.';
-            if ($withdrawnAmount > 0) {
-                $message .= ' Saldo Rp ' . number_format($withdrawnAmount, 0, ',', '.') . ' telah ditarik.';
+
+            // 3. PENGEMBALIAN SISA SIMPANAN (WITHDRAWAL)
+            // Jika setelah bayar hutang masih ada sisa simpanan, atau memang tidak punya hutang
+            // Maka sisa uang dikembalikan ke member
+            $member->refresh(); // Ambil saldo terbaru setelah potongan di atas
+            if ($member->savings_balance > 0) {
+                $sisaUang = $member->savings_balance;
+                
+                Transaction::create([
+                    'member_id' => $member->id,
+                    'transaction_date' => now(),
+                    'type' => Transaction::TYPE_SAVING_WITHDRAW,
+                    'amount_saving' => $sisaUang,
+                    'total_amount' => $sisaUang,
+                    'payment_method' => 'cash',
+                    'notes' => "$notes (Pengembalian Simpanan Akhir)",
+                ]);
+
+                // Nol-kan saldo member
+                $member->update(['savings_balance' => 0]);
             }
-            
-            return back()->with('success', $message);
-        } else {
-            $member->reactivate();
-            return back()->with('success', 'Anggota berhasil diaktifkan kembali.');
+
+            // 4. Nonaktifkan Member
+            $member->update(['is_active' => false]);
+
+            $member -> update([
+                'is-active' => false,
+                'deactivation_reason' => $reason,
+                'deactivation_date' => now(),
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('members.index')
+                ->with('success', 'Member berhasil dinonaktifkan. Alasan: $reason
+                Seluruh Simpanan & Hutang telah diselesaikan (0).');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Gagal memproses: ' . $e->getMessage());
         }
+    }   
+
+    public function inactiveIndex(Request $request)
+    {
+        $query = Member::where('is_active', false);
+
+        // Filter pencarian (opsional)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                ->orWhere('nik', 'like', "%{$search}%");
+            });
+        }
+
+        $members = $query->orderBy('deactivation_date', 'desc')->paginate(20);
+
+        return view('members.inactive', compact('members'));
     }
 }

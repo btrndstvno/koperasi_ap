@@ -54,6 +54,7 @@ class Transaction extends Model
     const TYPE_LOAN_DISBURSEMENT = 'loan_disbursement'; // Pencairan Pinjaman
     const TYPE_SAVING_INTEREST = 'saving_interest';     // Bunga Tabungan (Auto Monthly)
     const TYPE_SHU_REWARD = 'shu_reward';               // Pembagian SHU (Annual)
+    const TYPE_LOAN_WRITE_OFF = 'loan_write_off';       // Penghapusan Piutang
 
     /**
      * Get the member that owns the transaction.
