@@ -40,9 +40,9 @@
                         <button type="submit" class="btn btn-success btn-lg">
                             <i class="bi bi-cloud-upload me-2"></i>Import Langsung
                         </button>
-                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('importForm').action='{{ route('imports.preview') }}'; document.getElementById('importForm').submit();">
+                        <!-- <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('importForm').action='{{ route('imports.preview') }}'; document.getElementById('importForm').submit();">
                             <i class="bi bi-eye me-2"></i>Preview Dulu
-                        </button>
+                        </button> -->
                     </div>
                 </form>
             </div>

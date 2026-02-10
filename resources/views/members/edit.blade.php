@@ -2,7 +2,7 @@
 
 @section('title', 'Edit Anggota - ' . $member->name)
 @section('breadcrumb')
-<a href="{{ route('members.index') }}" class="text-decoration-none">Anggota</a> / 
+<a href="{{ $backUrl ?? route('members.index') }}" class="text-decoration-none">Anggota</a> / 
 <a href="{{ route('members.show', $member) }}" class="text-decoration-none">{{ $member->name }}</a> / Edit
 @endsection
 
@@ -103,7 +103,7 @@
                     <hr>
 
                     <div class="d-flex justify-content-between">
-                        <a href="{{ route('members.show', $member) }}" class="btn btn-secondary">
+                        <a href="{{ $backUrl ?? route('members.index') }}" class="btn btn-secondary">
                             <i class="bi bi-arrow-left me-1"></i> Kembali
                         </a>
                         <button type="submit" class="btn btn-primary" id="submitBtn">

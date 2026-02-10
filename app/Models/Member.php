@@ -22,6 +22,8 @@ class Member extends Model
         'csd',
         'dept',
         'employee_status',
+        'is_active',
+        'deactivated_at',
         'savings_balance',
     ];
 
@@ -34,6 +36,8 @@ class Member extends Model
         'savings_balance' => 'decimal:2',
         'employee_status' => 'string',
         'group_tag' => 'string',
+        'is_active' => 'boolean',
+        'deactivated_at' => 'datetime',
     ];
 
     /**
@@ -134,5 +138,71 @@ class Member extends Model
     public function withdrawals(): HasMany
     {
         return $this->hasMany(Withdrawal::class);
+    }
+
+    /**
+     * Scope: Only active members
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_active', true);
+    }
+
+    /**
+     * Scope: Only inactive members
+     */
+    public function scopeInactive($query)
+    {
+        return $query->where('is_active', false);
+    }
+
+    /**
+     * Scope: Filter by group tag
+     */
+    public function scopeByGroupTag($query, string $groupTag)
+    {
+        return $query->where('group_tag', $groupTag);
+    }
+
+    /**
+     * Deactivate member and withdraw all savings
+     */
+    public function deactivate(): float
+    {
+        $withdrawnAmount = $this->savings_balance;
+        
+        // Create withdrawal transaction if has balance
+        if ($withdrawnAmount > 0) {
+            Transaction::create([
+                'member_id' => $this->id,
+                'loan_id' => null,
+                'transaction_date' => now()->format('Y-m-d'),
+                'type' => Transaction::TYPE_SAVING_WITHDRAW,
+                'amount_saving' => $withdrawnAmount,
+                'amount_principal' => 0,
+                'amount_interest' => 0,
+                'total_amount' => $withdrawnAmount,
+                'payment_method' => 'cash',
+                'notes' => 'Penarikan otomatis - Anggota dinonaktifkan',
+            ]);
+            
+            $this->savings_balance = 0;
+        }
+        
+        $this->is_active = false;
+        $this->deactivated_at = now();
+        $this->save();
+        
+        return $withdrawnAmount;
+    }
+
+    /**
+     * Reactivate member
+     */
+    public function reactivate(): void
+    {
+        $this->is_active = true;
+        $this->deactivated_at = null;
+        $this->save();
     }
 }

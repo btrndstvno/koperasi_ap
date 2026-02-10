@@ -84,30 +84,26 @@ class TransactionController extends Controller
             $loan_id = null;
 
             if ($activeLoanInPeriod) {
-                 // Hitung pembayaran yang SUDAH dilakukan SEBELUM bulan ini
-                 // (Untuk menentukan sisa hutang di AWAL bulan ini)
-                 $pastRepayments = $member->transactions
-                     ->where('loan_id', $activeLoanInPeriod->id)
-                     ->where('type', 'loan_repayment') // Hardcoded type check
-                     ->where('transaction_date', '<', $targetMonthStart->toDateString())
-                     ->sum('amount_principal');
-                     
-                 $pastInstallmentsCount = $member->transactions
-                     ->where('loan_id', $activeLoanInPeriod->id)
-                     ->where('type', 'loan_repayment')
-                     ->where('transaction_date', '<', $targetMonthStart->toDateString())
-                     ->count();
-                     
-                 $remainingPrincipal = $activeLoanInPeriod->amount - $pastRepayments;
+                 // Gunakan remaining_principal langsung dari loan (sudah akurat dari import/transaksi)
+                 $remainingPrincipal = $activeLoanInPeriod->remaining_principal;
                  
-                 // Jika masih ada sisa hutang & sisa tenor, maka tampilkan tagihan
+                 // Jika masih ada sisa hutang, maka tampilkan tagihan
                  if ($remainingPrincipal > 100) { // Tolerance for floating point
                      $pot_kop = $activeLoanInPeriod->monthly_installment > 0 
                         ? $activeLoanInPeriod->monthly_installment 
                         : $activeLoanInPeriod->monthly_principal;
                         
                      $sisa_pinjaman = $remainingPrincipal;
-                     $remaining_installments = max(0, $activeLoanInPeriod->duration - $pastInstallmentsCount);
+                     
+                     // Hitung sisa cicilan dari remaining_principal / monthly_installment
+                     // Contoh: Rizki progress 50% = sisa Rp 5.000.000 / Rp 1.000.000 = 5 cicilan
+                     if ($pot_kop > 0) {
+                         $remaining_installments = (int) ceil($remainingPrincipal / $pot_kop);
+                     } else {
+                         // Fallback ke tenor jika tidak ada monthly_installment
+                         $remaining_installments = $activeLoanInPeriod->duration;
+                     }
+                     
                      $loan_id = $activeLoanInPeriod->id;
                  }
             }
@@ -129,6 +125,12 @@ class TransactionController extends Controller
                 ->sum('total_amount');
 
             $saldoHistoris = $histDeposits - $histWithdraws;
+            
+            // Jika tidak ada transaksi sama sekali, gunakan savings_balance dari member (data import)
+            // Ini penting untuk member yang baru diimport dari Excel
+            if ($member->transactions->isEmpty() && $member->savings_balance > 0) {
+                $saldoHistoris = (float) $member->savings_balance;
+            }
 
             // Logic Iuran Wajib Otomatis (Recurring)
             // 1. Ambil transaksi iuran (deduction) terakhir

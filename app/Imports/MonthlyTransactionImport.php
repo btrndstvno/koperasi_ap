@@ -38,6 +38,7 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
     /**
      * Keywords untuk deteksi kolom header
      * PENTING: sisa_cicilan harus sebelum sisa_pinjaman karena "SISA CICILAN" mengandung "SISA"
+     * PENTING: adiputro_csd harus di akhir untuk menghindari konflik dengan section 'CSD'
      */
     const HEADER_KEYWORDS = [
         'nik' => ['NIK', 'NO INDUK', 'NIP'],
@@ -47,12 +48,12 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
         'iur_kop' => ['IUR KOP', 'IUR_KOP', 'IURAN', 'IUR. KOP'],
         'iur_tunai' => ['IUR TUNAI', 'IUR_TUNAI', 'TUNAI'],
         'jumlah' => ['JUMLAH', 'TOTAL'],
-        'saldo' => ['SALDO', 'SALDO KOPRASI', 'SALDO KOPERASI', 'SALDO KOP'],
-        'adiputro_csd' => ['ADIPUTRO', 'CSD', 'ADIPUTRO CSD'],
-        // sisa_cicilan HARUS sebelum sisa_pinjaman
-        'sisa_cicilan' => ['SISA CICILAN', 'SISA_CICILAN', 'CICILAN'],
+        'saldo' => ['SALDO', 'SALDO KOPRASI', 'SALDO KOPERASI', 'SALDO KOP', 'KOPRASI'],
+        // sisa_cicilan HARUS sebelum sisa_pinjaman - tambah variasi "SISA" dan "CICILAN" terpisah
+        'sisa_cicilan' => ['SISA CICILAN', 'SISA_CICILAN', 'CICILAN', 'SISA CIC'],
         'sisa_pinjaman' => ['SISA PINJAMAN', 'SISA_PINJAMAN', 'SISA HUTANG'],
-        // 'SISA' alone will be handled by special logic to avoid matching 'SISA CICILAN'
+        // adiputro_csd di akhir - mencakup berbagai format header
+        'adiputro_csd' => ['ADIPUTRO CSD', 'ADIPUTRO', 'GRUP', 'GROUP TAG', 'TAG'],
     ];
 
     /**
@@ -333,6 +334,26 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
             }
         }
         
+        // Special handling: search for sisa_cicilan after saldo or adiputro_csd column
+        // It typically appears at the end of the row
+        if (!isset($this->columnMap['sisa_cicilan'])) {
+            $startCol = max(
+                $this->columnMap['saldo'] ?? 0,
+                $this->columnMap['adiputro_csd'] ?? 0
+            );
+            
+            for ($i = $startCol + 1; $i < count($headerRow); $i++) {
+                $cell = strtoupper(trim((string) ($headerRow[$i] ?? '')));
+                
+                // Deteksi variasi header "SISA CICILAN" atau "CICILAN" saja
+                if (str_contains($cell, 'CICILAN') || $cell === 'SISA') {
+                    $this->columnMap['sisa_cicilan'] = $i;
+                    Log::info("sisa_cicilan inferred at column {$i} (cell: {$cell})");
+                    break;
+                }
+            }
+        }
+        
         Log::info("Column mapping result: " . json_encode($this->columnMap));
     }
 
@@ -361,9 +382,14 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
         $adiputroCsd = $this->getStringValue($row, 'adiputro_csd');
         $sisaCicilan = $this->parseSisaCicilan($row);
         
+        // Debug logging for sisa_cicilan detection
+        Log::info("Row {$rowNumber} - NIK={$nik}, potKop={$potKop}, sisaPinjaman={$sisaPinjaman}, saldo={$saldo}, sisaCicilan={$sisaCicilan}");
+        Log::debug("Row {$rowNumber} raw data: " . json_encode(array_slice($row, 0, 15)));
+        
         // Determine group_tag and employee_status
-        $groupTag = $this->currentSection;
+        $groupTag = $this->currentSection ?? 'Office';
         $employeeStatus = 'monthly';
+        $csdValue = $adiputroCsd; // Simpan nilai asli untuk field csd
         
         if ($this->currentSection === 'Bangunan') {
             // Untuk Bangunan: jika Adiputro CSD = MINGGUAN, status = weekly
@@ -372,16 +398,27 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
             }
         } else {
             // Untuk section lain: group_tag dari Adiputro CSD jika valid
-            $validTags = ['MANAGER', 'OFFICE', 'CSD'];
+            // Mapping berbagai format ke group_tag yang valid
             $upperCsd = strtoupper(trim($adiputroCsd));
-            if (in_array($upperCsd, $validTags)) {
-                $groupTag = ucfirst(strtolower($upperCsd));
-                if ($groupTag === 'Csd') $groupTag = 'CSD';
+            $tagMapping = [
+                'CSD' => 'CSD',
+                'MANAGER' => 'Manager', 
+                'MGR' => 'Manager',
+                'OFFICE' => 'Office',
+                'OFC' => 'Office',
+                'KARYAWAN' => 'Office',
+            ];
+            
+            if (isset($tagMapping[$upperCsd])) {
+                $groupTag = $tagMapping[$upperCsd];
             }
         }
         
+        Log::info("Processing row {$rowNumber}: NIK={$nik}, adiputroCsd={$adiputroCsd}, groupTag={$groupTag}");
+        
         // Find or create member
         $member = Member::where('nik', $nik)->first();
+        $isNewMember = false;
         
         if (!$member) {
             // Create new member
@@ -390,31 +427,133 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
                 'name' => $name ?: "Member {$nik}",
                 'dept' => $dept ?: '-',
                 'group_tag' => $groupTag,
+                'csd' => $csdValue, // Simpan nilai kolom CSD/Adiputro
                 'employee_status' => $employeeStatus,
                 'savings_balance' => $saldo,
             ]);
             $this->importResult['members_created']++;
-            Log::info("Created member: {$nik}");
+            $isNewMember = true;
+            Log::info("Created member: {$nik} with group_tag={$groupTag}, csd={$csdValue}");
         } else {
             // Update existing member
             $member->update([
                 'name' => $name ?: $member->name,
                 'dept' => $dept ?: $member->dept,
                 'group_tag' => $groupTag,
+                'csd' => $csdValue, // Update nilai kolom CSD/Adiputro
                 'employee_status' => $employeeStatus,
                 'savings_balance' => $saldo,
             ]);
             $this->importResult['members_updated']++;
+            Log::info("Updated member: {$nik} with group_tag={$groupTag}, csd={$csdValue}");
         }
         
-        // Handle loan creation based on SISA CICILAN
-        if ($sisaCicilan > 0 && $potKop > 0) {
-            $this->createLoanFromInstallments($member, $potKop, $sisaCicilan, $rowNumber);
+        // Handle loan creation based on POT KOP (angsuran pinjaman)
+        // POT KOP > 0 berarti ada cicilan pinjaman
+        $loanJustCreated = false;
+        
+        if ($potKop > 0) {
+            // sisaCicilan dari parseSisaCicilan():
+            // -1 = kolom tidak ada atau tidak valid
+            //  0 = "-" di Excel (cicilan selesai/lunas bulan ini - pembayaran terakhir)
+            // >0 = sisa cicilan setelah pembayaran ini
+            
+            $forcePayment = false;
+            $calculatedSisaCicilan = -1;
+
+            if ($sisaCicilan === 0) {
+                // Jika "-" (0), berarti bulan ini LUNAS.
+                // Kita buat loan dengan sisa 1 cicilan, LALU paksa transaksi pembayaran dijalankan
+                // sehingga status akhir di sistem menjadi LUNAS (0 sisa).
+                $calculatedSisaCicilan = 1;
+                $forcePayment = true;
+                Log::info("Row {$rowNumber}: sisa cicilan = '-' (lunas bulan ini). Setting sisa=1 dan force payment.");
+            } else {
+                $calculatedSisaCicilan = $sisaCicilan > 0 ? $sisaCicilan : -1;
+            }
+            
+            // Fallback: hitung dari sisa pinjaman sisaPinjaman
+            // Jika sisaPinjaman > 0, kita hitung
+            // Jika sisaPinjaman == 0, berarti Lunas (1 cicilan sisa)
+            if ($calculatedSisaCicilan <= 0) {
+                if ($sisaPinjaman > 0) {
+                    // Hitung sisa cicilan dari sisa pinjaman / cicilan bulanan
+                    $calculatedSisaCicilan = (int) ceil($sisaPinjaman / $potKop);
+                    Log::info("Calculated sisa cicilan from sisa_pinjaman: {$sisaPinjaman} / {$potKop} = {$calculatedSisaCicilan}");
+                } elseif ($sisaPinjaman == 0) {
+                    // Jika sisa pinjaman 0 tapi ada bayar (pot_kop > 0), berarti LUNAS baris ini
+                    // Jangan default ke 10, tapi default ke 1 (Lunas)
+                    $calculatedSisaCicilan = 1; 
+                    $forcePayment = true;
+                    Log::info("Sisa Pinjaman 0 detected. Assuming Lunas (sisa=1).");
+                }
+            }
+            
+            // Jika masih tidak valid (misal sisaPinjaman missing dan sisaCicilan missing), 
+            // Default ke 1 (Lunas) lebih aman daripada 10 (Hutang baru) untuk mencegah sisa hutang palsu 10jt
+            if ($calculatedSisaCicilan <= 0) {
+                $calculatedSisaCicilan = 1; // Default aman: anggap lunas bulan ini
+                $forcePayment = true;
+                Log::info("No valid sisa cicilan info (sisaCicilan=-1, sisaPinjaman=missing). Defaulting to 1 (Lunas).");
+            }
+            
+            $loanJustCreated = $this->createLoanFromInstallments($member, $potKop, $calculatedSisaCicilan, $rowNumber);
+            
+            // Jika ini kasus pelunasan ("-"), kita paksa boolean $loanJustCreated jadi false
+            // supaya blok transaksi di bawah tetap jalan dan melakukan pembayaran (pelunasan)
+            if ($forcePayment && $loanJustCreated) {
+                $loanJustCreated = false; 
+            }
         }
         
         // Create transactions
         $hasTransaction = false;
         $transactionDate = $this->transactionDate ?: now()->format('Y-m-d');
+        
+        // Untuk member dengan saldo yang sudah ada di Excel,
+        // buat transaksi saldo awal (Initial Balance) untuk mencatat saldo historis
+        // Ini berlaku untuk:
+        // 1. Member baru
+        // 2. Member existing yang belum punya transaksi simpanan (first time import)
+        // 
+        // Saldo ini adalah akumulasi sampai periode ini (termasuk iur_kop dan iur_tunai bulan ini)
+        // Jadi saldo awal historis = saldo - iur_kop - iur_tunai (saldo SEBELUM bulan ini)
+        $needsInitialSaldo = $isNewMember;
+        
+        // Cek jika member existing tapi belum punya transaksi simpanan
+        if (!$isNewMember && $saldo > 0) {
+            $existingSavingTransactions = $member->transactions()
+                ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                ->count();
+            if ($existingSavingTransactions === 0) {
+                $needsInitialSaldo = true;
+            }
+        }
+        
+        if ($needsInitialSaldo && $saldo > 0) {
+            // Hitung saldo sebelum transaksi bulan ini
+            $previousSaldo = $saldo - $iurKop - $iurTunai;
+            
+            if ($previousSaldo > 0) {
+                // Tanggal saldo awal = hari pertama bulan sebelumnya
+                $initialDate = Carbon::parse($transactionDate)->subMonth()->startOfMonth()->format('Y-m-d');
+                
+                Transaction::create([
+                    'member_id' => $member->id,
+                    'loan_id' => null,
+                    'transaction_date' => $initialDate,
+                    'type' => Transaction::TYPE_SAVING_DEPOSIT,
+                    'amount_saving' => $previousSaldo,
+                    'amount_principal' => 0,
+                    'amount_interest' => 0,
+                    'total_amount' => $previousSaldo,
+                    'payment_method' => 'other',
+                    'notes' => "Saldo Awal Import: {$this->sheetName}",
+                ]);
+                $hasTransaction = true;
+                Log::info("Created initial balance transaction for {$nik}: amount={$previousSaldo}, date={$initialDate}");
+            }
+        }
         
         // IUR KOP (Simpanan potong gaji)
         if ($iurKop > 0) {
@@ -451,7 +590,9 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
         }
         
         // POT KOP (Angsuran pinjaman)
-        if ($potKop > 0) {
+        // SKIP jika loan baru saja dibuat dari import, karena sisa_cicilan di Excel
+        // sudah memperhitungkan pembayaran bulan ini
+        if ($potKop > 0 && !$loanJustCreated) {
             $activeLoan = $member->activeLoans()->first();
             
             if ($activeLoan) {
@@ -482,20 +623,32 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
 
     /**
      * Parse SISA CICILAN column (handle #DIV/0! as 0)
+     * "-" berarti cicilan selesai bulan ini (sisa = 0)
+     * Digunakan HANYA untuk menentukan loan yang sudah lunas (POT KOP ada tapi sisa "-")
      */
     protected function parseSisaCicilan(array $row): int
     {
         $colIndex = $this->columnMap['sisa_cicilan'] ?? null;
-        if ($colIndex === null) return 0;
+        if ($colIndex === null) return -1; // -1 = kolom tidak ditemukan
         
         $value = $row[$colIndex] ?? null;
-        if (empty($value)) return 0;
         
-        $strValue = strtoupper(trim((string) $value));
+        // Jika kosong, return -1 (tidak ada data)
+        if ($value === null || $value === '') return -1;
         
-        // #DIV/0!, #VALUE!, #REF!, dll = 0
-        if (str_starts_with($strValue, '#')) {
+        $strValue = trim((string) $value);
+        
+        // "-" artinya cicilan selesai bulan ini = sisa 0 (LUNAS)
+        // Handle berbagai karakter dash
+        if ($strValue === '-' || $strValue === '–' || $strValue === '—' || $strValue === '−') {
             return 0;
+        }
+        
+        $strValueUpper = strtoupper($strValue);
+        
+        // #DIV/0!, #VALUE!, #REF!, dll = tidak valid, return -1
+        if (str_starts_with($strValueUpper, '#')) {
+            return -1;
         }
         
         // Coba parse sebagai integer
@@ -503,45 +656,70 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
             return max(0, (int) $value);
         }
         
-        return 0;
+        return -1; // Tidak bisa diparse
     }
 
     /**
      * Create loan from installment data
      * Peraturan koperasi: Cicilan selalu 10 bulan
+     * 
+     * Perhitungan tanggal approval:
+     * - Jika sisa cicilan = 4, berarti sudah bayar 6x (termasuk bulan ini)
+     * - Pembayaran pertama = bulan approval
+     * - Jika bulan ini (Januari 2026) adalah pembayaran ke-6, maka approval = Agustus 2025
+     * - Formula: tanggal approval = tanggal transaksi - (jumlah terbayar - 1) bulan
+     * 
+     * @return bool True jika loan berhasil dibuat, false jika skip
      */
-    protected function createLoanFromInstallments(Member $member, float $monthlyInstallment, int $remainingInstallments, int $rowNumber): void
+    protected function createLoanFromInstallments(Member $member, float $monthlyInstallment, int $remainingInstallments, int $rowNumber): bool
     {
         // Cek apakah sudah punya loan aktif
         if ($member->activeLoans()->exists()) {
-            return; // Skip, sudah ada loan
+            Log::info("Member {$member->nik} sudah punya loan aktif, skip create");
+            return false; // Skip, sudah ada loan
         }
         
         $duration = 10; // Cicilan selalu 10 bulan
+        
+        // Pastikan remainingInstallments valid (1-10)
+        $remainingInstallments = max(1, min(10, $remainingInstallments));
+        
         $paidInstallments = $duration - $remainingInstallments;
+        
+        // Bulan ini adalah pembayaran ke-(paidInstallments + 1) karena kita sedang proses pembayaran
+        // Jadi total yang sudah dibayar termasuk bulan ini = paidInstallments
+        // Tapi sisa cicilan 4 berarti SETELAH bayar bulan ini, sisanya 4
+        // Berarti bulan ini adalah pembayaran ke-6 (10 - 4 = 6)
         
         // Hitung pokok pinjaman: cicilan bulanan * 10
         $loanAmount = $monthlyInstallment * $duration;
         
-        // Hitung pokok yang sudah dibayar
-        $principalPaid = $monthlyInstallment * $paidInstallments;
-        
-        // Sisa pokok
-        $remainingPrincipal = $loanAmount - $principalPaid;
+        // Sisa pokok SETELAH bayar bulan ini = cicilan * sisa cicilan
+        // Bulan ini belum dibayar (masih dalam proses import), jadi:
+        // Sisa pokok = cicilan * (sisa cicilan)
+        $remainingPrincipal = $monthlyInstallment * $remainingInstallments;
         
         // Hitung tanggal approve (mundur dari tanggal transaksi file)
+        // Jika paidInstallments = 6 (termasuk bulan ini), maka:
+        // - Bulan ini adalah pembayaran ke-6
+        // - Pembayaran ke-1 adalah 5 bulan yang lalu
+        // - Loan diapprove di bulan pembayaran ke-1
         $transactionDate = Carbon::parse($this->transactionDate ?: now());
-        $approvedDate = $transactionDate->copy()->subMonths($paidInstallments)->startOfMonth();
+        
+        // Mundur (paidInstallments - 1) bulan karena pembayaran pertama = bulan approval
+        // Jika ini pembayaran ke-6, mundur 5 bulan
+        $monthsBack = max(0, $paidInstallments - 1);
+        $approvedDate = $transactionDate->copy()->subMonths($monthsBack)->startOfMonth();
         
         // Create loan
         Loan::create([
             'member_id' => $member->id,
             'amount' => $loanAmount,
-            'interest_rate' => 0, // Tidak diketahui, asumsikan 0 atau bunga sudah dipotong di awal
+            'interest_rate' => 10, // Default bunga 10% sesuai request user
             'duration' => $duration,
             'remaining_principal' => $remainingPrincipal,
             'monthly_installment' => $monthlyInstallment,
-            'total_interest' => 0,
+            'total_interest' => 0, // Hitungan total interest di-skip karena ini data migrasi/import
             'admin_fee' => 0,
             'disbursed_amount' => $loanAmount,
             'status' => Loan::STATUS_ACTIVE,
@@ -550,7 +728,9 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
         ]);
         
         $this->importResult['loans_created']++;
-        Log::info("Created loan for {$member->nik}: amount={$loanAmount}, approved={$approvedDate->format('Y-m-d')}");
+        Log::info("Created loan for {$member->nik}: amount={$loanAmount}, monthly={$monthlyInstallment}, remaining={$remainingInstallments}x, paid={$paidInstallments}x, approved={$approvedDate->format('Y-m-d')}");
+        
+        return true; // Loan berhasil dibuat
     }
 
     /**

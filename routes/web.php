@@ -58,6 +58,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/members-search', [MemberController::class, 'searchMembers'])->name('members.search');
     Route::post('/members/{member}/add-saving', [MemberController::class, 'addSaving'])->name('members.add-saving');
     Route::post('/members/{member}/withdraw-saving', [MemberController::class, 'withdrawSaving'])->name('members.withdraw-saving');
+    Route::post('/members/{member}/toggle-active', [MemberController::class, 'toggleActive'])->name('members.toggle-active');
 
     // Loans Management
     Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');
@@ -92,4 +93,5 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 
     // Exports
     Route::get('/exports/members', [ExportController::class, 'members'])->name('exports.members');
+    Route::get('/exports/pending-loans', [ExportController::class, 'pendingLoans'])->name('exports.pending-loans');
 });

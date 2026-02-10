@@ -18,7 +18,7 @@ class MemberController extends Controller
     {
         $query = Member::query();
 
-        // Search
+        // Search by NIK or Name
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -27,14 +27,24 @@ class MemberController extends Controller
             });
         }
 
-        // Filter by department
+        // Filter by department (searchbox - uses LIKE)
         if ($request->filled('dept')) {
-            $query->where('dept', $request->dept);
+            $query->where('dept', 'like', "%{$request->dept}%");
         }
 
-        // Filter by status
+        // Filter by group_tag
+        if ($request->filled('group_tag')) {
+            $query->where('group_tag', $request->group_tag);
+        }
+
+        // Filter by employee status
         if ($request->filled('status')) {
             $query->where('employee_status', $request->status);
+        }
+
+        // Filter by active status
+        if ($request->filled('is_active')) {
+            $query->where('is_active', $request->is_active === 'yes');
         }
 
         // Filter by loan status
@@ -54,8 +64,9 @@ class MemberController extends Controller
             ->appends($request->query());
 
         $departments = Member::distinct()->pluck('dept')->sort();
+        $groupTags = Member::getGroupTags();
 
-        return view('members.index', compact('members', 'departments'));
+        return view('members.index', compact('members', 'departments', 'groupTags'));
     }
 
     /**
@@ -157,13 +168,17 @@ class MemberController extends Controller
     /**
      * Show the form for editing the specified member.
      */
-    public function edit(Member $member)
+    public function edit(Request $request, Member $member)
     {
         $existing_depts = Member::distinct()->whereNotNull('dept')->pluck('dept')->sort()->values();
         $existing_csds = Member::distinct()->whereNotNull('csd')->where('csd', '!=', '')->pluck('csd')->sort()->values();
         $group_tags = Member::getGroupTags();
         
-        return view('members.edit', compact('member', 'existing_depts', 'existing_csds', 'group_tags'));
+        // Pass filter params to view for back navigation
+        $filterParams = $request->only(['search', 'dept', 'group_tag', 'is_active', 'has_loan', 'status', 'page']);
+        $backUrl = route('members.index', $filterParams);
+        
+        return view('members.edit', compact('member', 'existing_depts', 'existing_csds', 'group_tags', 'backUrl'));
     }
 
     /**
@@ -301,5 +316,30 @@ class MemberController extends Controller
         });
 
         return response()->json($results);
+    }
+
+    /**
+     * Toggle member active status
+     */
+    public function toggleActive(Request $request, Member $member)
+    {
+        if ($member->is_active) {
+            // Check if member has active loans before deactivating
+            if ($member->activeLoans()->exists()) {
+                return back()->with('error', 'Tidak dapat menonaktifkan anggota yang masih memiliki pinjaman aktif. Lunasi pinjaman terlebih dahulu.');
+            }
+            
+            $withdrawnAmount = $member->deactivate();
+            
+            $message = 'Anggota berhasil dinonaktifkan.';
+            if ($withdrawnAmount > 0) {
+                $message .= ' Saldo Rp ' . number_format($withdrawnAmount, 0, ',', '.') . ' telah ditarik.';
+            }
+            
+            return back()->with('success', $message);
+        } else {
+            $member->reactivate();
+            return back()->with('success', 'Anggota berhasil diaktifkan kembali.');
+        }
     }
 }

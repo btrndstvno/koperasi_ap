@@ -53,25 +53,32 @@
 
 <div class="card border-0 shadow-sm">
     <div class="card-header bg-white py-3">
-        <form action="{{ route('loans.index') }}" method="GET" class="row g-3">
-            <div class="col-md-4">
-                <div class="input-group">
-                    <span class="input-group-text bg-light border-end-0">
-                        <i class="bi bi-search text-muted"></i>
-                    </span>
-                    <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Cari NIK atau Nama..." value="{{ request('search') }}">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <form action="{{ route('loans.index') }}" method="GET" class="row g-2 flex-grow-1">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Cari NIK atau Nama..." value="{{ request('search') }}">
+                    </div>
                 </div>
+                <div class="col-md-3">
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">Semua Status</option>
+                        <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending (Menunggu)</option>
+                        <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active (Berjalan)</option>
+                        <option value="paid" {{ request('status') == 'paid' ? 'selected' : '' }}>Paid (Lunas)</option>
+                        <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected (Ditolak)</option>
+                    </select>
+                </div>
+            </form>
+            <div>
+                <a href="{{ route('exports.pending-loans') }}" class="btn btn-success">
+                    <i class="bi bi-file-earmark-excel me-1"></i> Export Pending
+                </a>
             </div>
-            <div class="col-md-3">
-                <select name="status" class="form-select" onchange="this.form.submit()">
-                    <option value="">Semua Status</option>
-                    <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending (Menunggu)</option>
-                    <option value="active" {{ request('status') == 'active' ? 'selected' : '' }}>Active (Berjalan)</option>
-                    <option value="paid" {{ request('status') == 'paid' ? 'selected' : '' }}>Paid (Lunas)</option>
-                    <option value="rejected" {{ request('status') == 'rejected' ? 'selected' : '' }}>Rejected (Ditolak)</option>
-                </select>
-            </div>
-        </form>
+        </div>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
