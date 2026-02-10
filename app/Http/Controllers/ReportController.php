@@ -358,23 +358,20 @@ class ReportController extends Controller
             $sisaTenorHistoris = 0;
 
             if ($activeLoan) {
-                // Sum pembayaran pokok sampai akhir bulan terpilih
-                $totalPaidPrincipal = $member->transactions
-                    ->where('loan_id', $activeLoan->id)
-                    ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
-                    ->where('transaction_date', '<=', $endOfMonth)
-                    ->sum('amount_principal');
+                // Selalu gunakan remaining_principal langsung dari loan 
+                // karena data ini sudah akurat dari import dan transaksi yang sudah dilakukan
+                $sisaPinjamanHistoris = (float) $activeLoan->remaining_principal;
 
-                $sisaPinjamanHistoris = max(0, $activeLoan->amount - $totalPaidPrincipal);
+                // Hitung sisa tenor dari sisa pinjaman / cicilan pokok
+                $monthlyPrincipal = $activeLoan->monthly_installment > 0 
+                    ? $activeLoan->monthly_installment 
+                    : $activeLoan->monthly_principal;
 
-                // Count jumlah pembayaran untuk hitung sisa tenor
-                $paidInstallments = $member->transactions
-                    ->where('loan_id', $activeLoan->id)
-                    ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
-                    ->where('transaction_date', '<=', $endOfMonth)
-                    ->count();
-
-                $sisaTenorHistoris = max(0, $activeLoan->duration - $paidInstallments);
+                if ($monthlyPrincipal > 0 && $sisaPinjamanHistoris > 0) {
+                    $sisaTenorHistoris = (int) ceil($sisaPinjamanHistoris / $monthlyPrincipal);
+                } else {
+                    $sisaTenorHistoris = 0;
+                }
             }
 
             return (object) [

@@ -232,21 +232,15 @@ class TransactionController extends Controller
         ]);
 
         $transactionDate = $validated['transaction_date'];
-        
-        // Check if bulk input already exists for this month (indicated by payroll_deduction)
         $dateObj = Carbon::parse($transactionDate);
-        $exists = Transaction::whereYear('transaction_date', $dateObj->year)
-            ->whereMonth('transaction_date', $dateObj->month)
-            ->where('payment_method', 'payroll_deduction')
-            ->exists();
-
-        if ($exists) {
-            return back()->with('error', 'Input Massal untuk bulan ' . $dateObj->translatedFormat('F Y') . ' sudah pernah dilakukan! Mohon periksa Laporan Transaksi.');
-        }
-
+        
+        // Hapus global check supaya bisa simpan per-departemen secara bertahap
+        // Validation check akan dilakukan per-member di dalam loop
+        
         $results = [
             'processed' => 0,
             'skipped' => 0,
+            'duplicate' => 0,
             'total_pot' => 0,
             'total_iur' => 0,
             'total_iur_tunai' => 0,
@@ -256,6 +250,25 @@ class TransactionController extends Controller
 
         try {
             foreach ($validated['transactions'] as $data) {
+                $memberId = $data['member_id'] ?? null;
+                if (!$memberId) continue;
+
+                $member = Member::find($memberId);
+                if (!$member) continue;
+
+                // Check duplicate transaction for this member in this month
+                // Cek apakah member ini SUDAH punya transaksi 'payroll_deduction' di bulan yang sama
+                $alreadyExists = Transaction::where('member_id', $member->id)
+                    ->whereYear('transaction_date', $dateObj->year)
+                    ->whereMonth('transaction_date', $dateObj->month)
+                    ->where('payment_method', 'payroll_deduction')
+                    ->exists();
+
+                if ($alreadyExists) {
+                    $results['duplicate']++;
+                    continue; // Skip member ini
+                }
+
                 $potKop = (float) ($data['pot_kop'] ?? 0);
                 $iurKop = (float) ($data['iur_kop'] ?? 0);
                 $iurTunai = (float) ($data['iur_tunai'] ?? 0);
@@ -265,11 +278,6 @@ class TransactionController extends Controller
                 // Skip if all amounts are 0
                 if ($totalAmount <= 0) {
                     $results['skipped']++;
-                    continue;
-                }
-
-                $member = Member::find($data['member_id']);
-                if (!$member) {
                     continue;
                 }
 

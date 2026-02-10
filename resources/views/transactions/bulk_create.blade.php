@@ -50,10 +50,7 @@
     </div>
 </div>
 
-<!-- Bulk Form with Tabs -->
-<form action="{{ route('transactions.bulk.store') }}" method="POST" id="bulkForm">
-    @csrf
-    <input type="hidden" name="transaction_date" id="transactionDateHidden" value="{{ $transactionDate }}">
+<!-- Bulk Form removed from here, moved inside tabs -->
 
     <div class="card">
         <div class="card-header py-2">
@@ -87,8 +84,12 @@
                          role="tabpanel" 
                          data-tag="{{ $tagName }}">
                         
-                        <div class="table-container">
-                            <table class="table table-sm table-bordered bulk-table mb-0">
+                        <form action="{{ route('transactions.bulk.store') }}" method="POST" class="bulk-group-form" data-tag="{{ $tagName }}">
+                            @csrf
+                            <input type="hidden" name="transaction_date" class="transaction-date-hidden" value="{{ $transactionDate }}">
+                        
+                            <div class="table-container">
+                                <table class="table table-sm table-bordered bulk-table mb-0">
                                 <thead class="table-light sticky-header">
                                     <tr>
                                         <th style="width: 50px;" class="text-center">#</th>
@@ -136,7 +137,7 @@
                                                        name="transactions[{{ $globalIndex }}][iur_kop]" 
                                                        class="form-control form-control-sm text-end input-iur"
                                                        value="{{ round($member->iur_kop) }}"
-                                                       min="0" step="1000"
+                                                       min="0" step="1"
                                                        data-tag="{{ $tagName }}"
                                                        data-row="{{ $globalIndex }}">
                                             </td>
@@ -146,7 +147,7 @@
                                                        name="transactions[{{ $globalIndex }}][iur_tunai]" 
                                                        class="form-control form-control-sm text-end input-iur-tunai"
                                                        value="{{ round($member->iur_tunai) }}"
-                                                       min="0" step="1000"
+                                                       min="0" step="1"
                                                        data-tag="{{ $tagName }}"
                                                        data-row="{{ $globalIndex }}">
                                             </td>
@@ -216,51 +217,51 @@
                                 </tfoot>
                             </table>
                         </div>
+                        
+                        <div class="row align-items-center mt-3 mb-2 px-2">
+                            <div class="col-md-8">
+                                <div class="d-flex gap-4">
+                                    <div>
+                                        <small class="text-muted">Total {{ $tagName }} POT:</small>
+                                        <strong class="ms-1" id="totalPot-{{ Str::slug($tagName) }}">Rp {{ number_format($group->subtotal_pot, 0, ',', '.') }}</strong>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">Total {{ $tagName }} IUR:</small>
+                                        <strong class="ms-1 text-info" id="totalIur-{{ Str::slug($tagName) }}">Rp {{ number_format($group->subtotal_iur, 0, ',', '.') }}</strong>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">Total {{ $tagName }} TUNAI:</small>
+                                        <strong class="ms-1 text-success" id="totalIurTunai-{{ Str::slug($tagName) }}">Rp {{ number_format($group->subtotal_iur_tunai, 0, ',', '.') }}</strong>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted">TOTAL {{ $tagName }}:</small>
+                                        <strong class="ms-1 text-primary fs-5" id="totalJumlah-{{ Str::slug($tagName) }}">Rp {{ number_format($group->subtotal_jumlah, 0, ',', '.') }}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-circle me-2"></i>Simpan {{ $tagName }}
+                                </button>
+                            </div>
+                        </div>
+                        </form>
                     </div>
                     @php $isFirst = false; @endphp
                 @endforeach
             </div>
-        </div>
-        <div class="card-footer">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <div class="d-flex gap-4">
-                        <div>
-                            <small class="text-muted">Total POT KOP:</small>
-                            <strong class="ms-2" id="grandTotalPot">Rp {{ number_format($grandTotals->pot_kop, 0, ',', '.') }}</strong>
-                        </div>
-                        <div>
-                            <small class="text-muted">Total IUR KOP:</small>
-                            <strong class="ms-2 text-info" id="grandTotalIur">Rp {{ number_format($grandTotals->iur_kop, 0, ',', '.') }}</strong>
-                        </div>
-                        <div>
-                            <small class="text-muted">Total IUR TUNAI:</small>
-                            <strong class="ms-2 text-success" id="grandTotalIurTunai">Rp {{ number_format($grandTotals->iur_tunai, 0, ',', '.') }}</strong>
-                        </div>
-                        <div>
-                            <small class="text-muted">GRAND TOTAL:</small>
-                            <strong class="ms-2 text-primary fs-5" id="grandTotalJumlah">Rp {{ number_format($grandTotals->jumlah, 0, ',', '.') }}</strong>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 text-end">
-                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                        <i class="bi bi-check-circle me-2"></i>Simpan Semua Transaksi
-                    </button>
-                </div>
-            </div>
-        </div>
+        <!-- Global Footer Removed -->
     </div>
-</form>
+<!-- Global Form Removed -->
 @endsection
 
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('bulkForm');
+    const forms = document.querySelectorAll('.bulk-group-form');
     const dateInput = document.getElementById('transactionDateInput');
-    const dateHidden = document.getElementById('transactionDateHidden');
-    // === 1. LOGIC MEMORI TAB (BARU) ===
+    const dateHiddens = document.querySelectorAll('.transaction-date-hidden');
+
     // Simpan posisi tab terakhir agar tidak reset saat refresh/save
     const tabEls = document.querySelectorAll('button[data-bs-toggle="tab"]');
     tabEls.forEach(tabEl => {
@@ -279,19 +280,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Sync date input with hidden field
+    // Sync date input with hidden fields
     dateInput.addEventListener('change', function() {
-        dateHidden.value = this.value;
+        const newVal = this.value;
+        dateHiddens.forEach(input => input.value = newVal);
     });
 
-    // Format number to Indonesian locale
+    // Format number to Indonesian
     function formatNumber(num) {
         return new Intl.NumberFormat('id-ID').format(num);
     }
 
-    // Parse formatted number back to integer
-    function parseNumber(str) {
-        return parseInt(String(str).replace(/\./g, '').replace(/,/g, '').replace('Rp ', '')) || 0;
+    // Helper: secure slug generation (simple version to match PHP Str::slug mostly)
+    function toSlug(text) {
+        return text.toString().toLowerCase()
+            .replace(/\s+/g, '-')           // Replace spaces with -
+            .replace(/[^\w\-]+/g, '')       // Remove all non-word chars
+            .replace(/\-\-+/g, '-')         // Replace multiple - with single -
+            .replace(/^-+/, '')             // Trim - from start of text
+            .replace(/-+$/, '');            // Trim - from end of text
     }
 
     // Calculate single row total
@@ -327,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         const totalJumlah = totalPot + totalIur + totalIurTunai;
         
-        // Update subtotal display
+        // Update subtotal display in Table Footer (tfoot)
         const subtotalPot = document.querySelector(`.subtotal-pot[data-tag="${tagName}"]`);
         const subtotalIur = document.querySelector(`.subtotal-iur[data-tag="${tagName}"]`);
         const subtotalIurTunai = document.querySelector(`.subtotal-iur-tunai[data-tag="${tagName}"]`);
@@ -337,104 +344,92 @@ document.addEventListener('DOMContentLoaded', function() {
         if (subtotalIur) subtotalIur.textContent = formatNumber(totalIur);
         if (subtotalIurTunai) subtotalIurTunai.textContent = formatNumber(totalIurTunai);
         if (subtotalJumlah) subtotalJumlah.textContent = formatNumber(totalJumlah);
+
+        // Update Summary row next to Button
+        const slug = toSlug(tagName);
+        const summPot = document.getElementById(`totalPot-${slug}`);
+        const summIur = document.getElementById(`totalIur-${slug}`);
+        const summTunai = document.getElementById(`totalIurTunai-${slug}`);
+        const summJml = document.getElementById(`totalJumlah-${slug}`);
+
+        if (summPot) summPot.textContent = 'Rp ' + formatNumber(totalPot);
+        if (summIur) summIur.textContent = 'Rp ' + formatNumber(totalIur);
+        if (summTunai) summTunai.textContent = 'Rp ' + formatNumber(totalIurTunai);
+        if (summJml) summJml.textContent = 'Rp ' + formatNumber(totalJumlah);
         
         return { pot: totalPot, iur: totalIur, iurTunai: totalIurTunai, jumlah: totalJumlah };
     }
 
-    // Calculate grand total
-    function calculateGrandTotal() {
-        const allPotInputs = document.querySelectorAll('input.input-pot');
-        const allIurInputs = document.querySelectorAll('input.input-iur');
-        const allIurTunaiInputs = document.querySelectorAll('input.input-iur-tunai');
-        
-        let grandPot = 0, grandIur = 0, grandIurTunai = 0;
-        
-        allPotInputs.forEach(input => grandPot += parseInt(input.value) || 0);
-        allIurInputs.forEach(input => grandIur += parseInt(input.value) || 0);
-        allIurTunaiInputs.forEach(input => grandIurTunai += parseInt(input.value) || 0);
-        
-        const grandJumlah = grandPot + grandIur + grandIurTunai;
-        
-        document.getElementById('grandTotalPot').textContent = 'Rp ' + formatNumber(grandPot);
-        document.getElementById('grandTotalIur').textContent = 'Rp ' + formatNumber(grandIur);
-        document.getElementById('grandTotalIurTunai').textContent = 'Rp ' + formatNumber(grandIurTunai);
-        document.getElementById('grandTotalJumlah').textContent = 'Rp ' + formatNumber(grandJumlah);
-        
-        return { pot: grandPot, iur: grandIur, iurTunai: grandIurTunai, jumlah: grandJumlah };
-    }
-
-    // Smart Cascade Calculation
-    function cascadeCalculation(rowIndex, tagName) {
-        // Level 1: Update row total
-        calculateRowTotal(rowIndex);
-        
-        // Level 2: Update tag subtotal
-        calculateTagSubtotal(tagName);
-        
-        // Level 3: Update grand total
-        calculateGrandTotal();
-    }
-
     // Add event listeners to all editable inputs
     document.querySelectorAll('.input-iur, .input-iur-tunai').forEach(input => {
-        input.addEventListener('input', function() {
-            const rowIndex = this.dataset.row;
-            const tagName = this.dataset.tag;
-            cascadeCalculation(rowIndex, tagName);
-        });
-        
-        input.addEventListener('change', function() {
-            const rowIndex = this.dataset.row;
-            const tagName = this.dataset.tag;
-            cascadeCalculation(rowIndex, tagName);
+        ['input', 'change'].forEach(eventType => {
+            input.addEventListener(eventType, function() {
+                const rowIndex = this.dataset.row;
+                const tagName = this.dataset.tag;
+                calculateRowTotal(rowIndex);
+                calculateTagSubtotal(tagName);
+            });
         });
     });
 
-    // Form submission with SweetAlert
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const grandTotal = document.getElementById('grandTotalJumlah').textContent;
-        const potTotal = document.getElementById('grandTotalPot').textContent;
-        const iurTotal = document.getElementById('grandTotalIur').textContent;
-        const iurTunaiTotal = document.getElementById('grandTotalIurTunai').textContent;
-        
-        Swal.fire({
-            title: 'Konfirmasi Transaksi',
-            html: `
-                <div class="text-start">
-                    <p><strong>Tanggal:</strong> ${dateHidden.value}</p>
-                    <hr>
-                    <p><strong>Total Cicilan (POT KOP):</strong> ${potTotal}</p>
-                    <p><strong>Total Iuran Gaji (IUR KOP):</strong> ${iurTotal}</p>
-                    <p><strong>Total Iuran Tunai:</strong> ${iurTunaiTotal}</p>
-                    <hr>
-                    <p class="fs-5"><strong>GRAND TOTAL:</strong> <span class="text-primary">${grandTotal}</span></p>
-                </div>
-            `,
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#0d6efd',
-            cancelButtonColor: '#6c757d',
-            confirmButtonText: '<i class="bi bi-check-circle me-1"></i> Ya, Simpan!',
-            cancelButtonText: 'Batal',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Show loading
-                Swal.fire({
-                    title: 'Mohon Tunggu...',
-                    html: 'Sedang memproses transaksi massal',
-                    allowOutsideClick: false,
-                    showConfirmButton: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                // Submit form
-                form.submit();
+    // Form submission with SweetAlert (Per Form/Tab)
+    forms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const tagName = this.getAttribute('data-tag');
+            const slug = toSlug(tagName);
+            
+            // Get totals from summary elements
+            const potTotal = document.getElementById(`totalPot-${slug}`)?.textContent || '0';
+            const iurTotal = document.getElementById(`totalIur-${slug}`)?.textContent || '0';
+            const iurTunaiTotal = document.getElementById(`totalIurTunai-${slug}`)?.textContent || '0';
+            const grandTotal = document.getElementById(`totalJumlah-${slug}`)?.textContent || '0';
+            
+            if (grandTotal === 'Rp 0' || grandTotal === '0') {
+              Swal.fire({
+                  icon: 'warning',
+                  title: 'Data Kosong',
+                  text: 'Tidak ada nilai transaksi untuk disimpan.'
+              });
+              return;
             }
+
+            Swal.fire({
+                title: `Simpan Transaksi ${tagName}?`,
+                html: `
+                    <div class="text-start">
+                        <p><strong>Tanggal:</strong> ${dateInput.value}</p>
+                        <hr>
+                        <p><strong>Total POT KOP:</strong> ${potTotal}</p>
+                        <p><strong>Total IUR KOP:</strong> ${iurTotal}</p>
+                        <p><strong>Total IUR TUNAI:</strong> ${iurTunaiTotal}</p>
+                        <hr>
+                        <p class="fs-5"><strong>TOTAL:</strong> <span class="text-primary">${grandTotal}</span></p>
+                    </div>
+                `,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#0d6efd',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="bi bi-check-circle me-1"></i> Ya, Simpan!',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Mohon Tunggu...',
+                        html: 'Sedang memproses...',
+                        allowOutsideClick: false,
+                        showConfirmButton: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    form.submit();
+                }
+            });
         });
     });
 });
