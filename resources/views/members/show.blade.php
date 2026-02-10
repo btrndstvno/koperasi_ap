@@ -45,6 +45,23 @@
                     </div>
                 </div>
             </div>
+            {{-- Status Badge & Reason --}}
+            @if(!$member->is_active)
+                <div class="alert alert-danger mt-2 py-2 mb-0">
+                    <div class="d-flex align-items-start">
+                        <i class="bi bi-person-x-fill fs-4 me-2"></i>
+                        <div>
+                            <strong>Anggota Nonaktif</strong>
+                            <div class="small">
+                                Tanggal: {{ $member->deactivation_date ? \Carbon\Carbon::parse($member->deactivation_date)->format('d M Y') : '-' }}
+                            </div>
+                            <div class="fst-italic mt-1">
+                                "{{ $member->deactivation_reason ?? 'Tidak ada alasan tercatat' }}"
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
             <div class="col-auto">
                 <div class="d-flex gap-2">
                     {{-- LOGIKA TOMBOL STATUS SMART (BERTUMPUK) --}}
@@ -378,54 +395,69 @@
 </div>
 @endif
 
-{{-- MODAL KONFIRMASI DEACTIVATE (SMART LOGIC) --}}
+{{-- MODAL KONFIRMASI DEACTIVATE (DIPERBAIKI) --}}
 <div class="modal fade" id="deactivateModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Nonaktif</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p>Anda akan menonaktifkan member <strong>{{ $member->name }}</strong>.</p>
-
-                @php
-                    $activeLoans = $member->loans()->where('status', 'active')->get();
-                    $totalDebt = $activeLoans->sum('remaining_principal');
-                @endphp
-
-                @if($totalDebt > 0)
-                    <div class="alert alert-warning border-warning">
-                        <strong>PERHATIAN: Member Masih Punya Hutang!</strong><br>
-                        Total: <span class="text-danger fw-bold">Rp {{ number_format($totalDebt, 0, ',', '.') }}</span>
-                        <hr class="my-1">
-                        <small class="text-dark">
-                            Jika dilanjutkan, hutang akan dianggap <strong>LUNAS (Write Off)</strong> dan dicatat sebagai kerugian.
-                        </small>
-                    </div>
-                    <p class="text-danger fw-bold small mb-0">Tindakan ini tidak bisa dibatalkan!</p>
-                @else
-                    <div class="alert alert-info py-2">
-                        <small><i class="bi bi-info-circle"></i> Member tidak memiliki tanggungan hutang.</small>
-                    </div>
-                @endif
+            {{-- PENTING: Form harus membungkus body dan footer agar input alasan terkirim --}}
+            <form action="{{ route('members.deactivate', $member->id) }}" method="POST">
+                @csrf
+                
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Nonaktif</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
                 <div class="modal-body">
+                    {{-- Tampilkan Error Validasi di dalam Modal jika ada --}}
+                    @if($errors->any())
+                        <div class="alert alert-danger">
+                            <ul class="mb-0 small">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <p>Anda akan menonaktifkan member <strong>{{ $member->name }}</strong>.</p>
+
+                    @php
+                        $activeLoans = $member->loans()->where('status', 'active')->get();
+                        $totalDebt = $activeLoans->sum('remaining_principal');
+                    @endphp
+
+                    @if($totalDebt > 0)
+                        <div class="alert alert-warning border-warning">
+                            <strong>PERHATIAN: Member Masih Punya Hutang!</strong><br>
+                            Total: <span class="text-danger fw-bold">Rp {{ number_format($totalDebt, 0, ',', '.') }}</span>
+                            <hr class="my-1">
+                            <small class="text-dark">
+                                Jika dilanjutkan, hutang akan dianggap <strong>LUNAS (Write Off)</strong> dan dicatat sebagai kerugian.
+                            </small>
+                        </div>
+                    @else
+                        <div class="alert alert-info py-2">
+                            <small><i class="bi bi-info-circle"></i> Member tidak memiliki tanggungan hutang.</small>
+                        </div>
+                    @endif
+                    
+                    {{-- INPUT ALASAN (WAJIB ADA) --}}
                     <div class="mb-3 mt-3">
                         <label class="form-label fw-bold">Alasan Nonaktif / Keluar <span class="text-danger">*</span></label>
-                        <textarea name="reason" class="form-control" rows="3" placeholder="Contoh: Resign, Pensiun, Diberhentikan, dll..." required></textarea>
-                        <div class="form-text">Alasan ini akan tercatat di riwayat anggota.</div>
+                        <textarea name="reason" class="form-control" rows="3" placeholder="Contoh: Resign, Pensiun, Diberhentikan..." required>{{ old('reason') }}</textarea>
                     </div>
+
                     <p class="mt-2 text-muted small">Tindakan ini akan menghapus member dari daftar Input Massal Gajian.</p>
                 </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                <form action="{{ route('members.deactivate', $member->id) }}" method="POST">
-                    @csrf
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
                     <button type="submit" class="btn btn-danger">
                         {{ $totalDebt > 0 ? 'Putihkan Hutang & Keluar' : 'Ya, Nonaktifkan' }}
                     </button>
-                </form>
-            </div>
+                </div>
+            </form>
         </div>
     </div>
 </div>

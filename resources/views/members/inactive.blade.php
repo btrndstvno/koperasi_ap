@@ -28,6 +28,8 @@
                         <th>Nama / NIK</th>
                         <th>Departemen</th>
                         <th>Tanggal Keluar</th>
+                        <th class="text-end">Saldo Terakhir</th>
+                        <th>Sisa Hutang (Write Off)</th> {{-- KOLOM BARU --}}
                         <th>Alasan Nonaktif</th>
                         <th class="text-center">Aksi</th>
                     </tr>
@@ -47,8 +49,32 @@
                                 -
                             @endif
                         </td>
+                        <td class="text-end">
+                            <span class="fw-bold text-success">
+                                Rp {{ number_format($member->final_savings_balance, 0, ',', '.') }}
+                            </span>
+                        </td>
+                        {{-- LOGIKA MENAMPILKAN HUTANG TERAKHIR --}}
                         <td>
-                            <span class="text-danger fst-italic">"{{ Str::limit($member->deactivation_reason, 50) }}"</span>
+                            @php
+                                // Hitung total transaksi write_off (Hutang yang diputihkan)
+                                $writeOffAmount = $member->transactions->where('type', 'loan_write_off')->sum('amount_principal');
+                            @endphp
+
+                            @if($writeOffAmount > 0)
+                                <span class="badge bg-danger fs-6">
+                                    Rp {{ number_format($writeOffAmount, 0, ',', '.') }}
+                                </span>
+                                <div class="small text-muted mt-1">Diputihkan/Kerugian</div>
+                            @else
+                                <span class="badge bg-success">
+                                    <i class="bi bi-check-circle me-1"></i> Lunas / Bersih
+                                </span>
+                            @endif
+                        </td>
+
+                        <td>
+                            <span class="text-muted fst-italic">"{{ Str::limit($member->deactivation_reason, 50) }}"</span>
                         </td>
                         <td class="text-center">
                             <a href="{{ route('members.show', $member->id) }}" class="btn btn-sm btn-outline-primary">
@@ -58,7 +84,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="5" class="text-center py-5 text-muted">
+                        <td colspan="6" class="text-center py-5 text-muted">
                             <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                             Tidak ada data anggota nonaktif.
                         </td>

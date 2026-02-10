@@ -54,13 +54,14 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/reports/shu/distribute', [ReportController::class, 'distributeSHU'])->name('reports.shu.distribute');
     
     // Members Management
+    Route::get('/members/inactive', [MemberController::class, 'inactiveIndex'])->name('members.inactive');
     Route::resource('members', MemberController::class);
     Route::get('/members-search', [MemberController::class, 'searchMembers'])->name('members.search');
     Route::post('/members/{member}/add-saving', [MemberController::class, 'addSaving'])->name('members.add-saving');
     Route::post('/members/{member}/withdraw-saving', [MemberController::class, 'withdrawSaving'])->name('members.withdraw-saving');
     Route::post('/members/{member}/activate', [MemberController::class, 'activate'])->name('members.activate');
     Route::post('/members/{member}/deactivate', [MemberController::class, 'deactivate'])->name('members.deactivate');
-    Route::get('/members/inactive', [App\Http\Controllers\MemberController::class, 'inactiveIndex'])->name('members.inactive');
+   
 
     // Loans Management
     Route::get('/loans', [LoanController::class, 'index'])->name('loans.index');

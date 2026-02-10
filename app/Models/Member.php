@@ -28,6 +28,7 @@ class Member extends Model
         'is_active',
         'deactivation_reason',
         'deactivation_date',
+        'final_savings_balance',
     ];
 
     /**
