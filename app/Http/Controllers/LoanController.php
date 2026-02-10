@@ -89,9 +89,11 @@ class LoanController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge(['amount' => str_replace('.', '', $request->amount)]);
+        
         $validated = $request->validate([
             'member_id' => 'required|exists:members,id',
-            'amount' => 'required|numeric|min:100000',
+            'amount' => 'required|numeric',
             'interest_rate' => 'required|numeric|min:0|max:10',
             'duration' => 'required|integer|min:1|max:60',
             'application_date' => 'required|date',
@@ -157,7 +159,7 @@ class LoanController extends Controller
         }
 
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:100000',
+            'amount' => 'required|numeric',
         ]);
 
         DB::transaction(function () use ($loan, $validated) {

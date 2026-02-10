@@ -117,7 +117,7 @@
                                             </td>
                                             <td>
                                                 {{-- POT KOP: Readonly --}}
-                                                <input type="number" 
+                                                <input type="text" 
                                                        name="transactions[{{ $globalIndex }}][pot_kop]" 
                                                        class="form-control form-control-sm text-end input-pot"
                                                        value="{{ round($member->pot_kop) }}"
@@ -127,7 +127,7 @@
                                             </td>
                                             <td>
                                                 {{-- IUR KOP: Editable (Potong Gaji) --}}
-                                                <input type="number" 
+                                                <input type="text" 
                                                        name="transactions[{{ $globalIndex }}][iur_kop]" 
                                                        class="form-control form-control-sm text-end input-iur"
                                                        value="{{ round($member->iur_kop) }}"
@@ -137,7 +137,7 @@
                                             </td>
                                             <td>
                                                 {{-- IUR TUNAI: Editable (Cash) --}}
-                                                <input type="number" 
+                                                <input type="text" 
                                                        name="transactions[{{ $globalIndex }}][iur_tunai]" 
                                                        class="form-control form-control-sm text-end input-iur-tunai"
                                                        value="{{ round($member->iur_tunai) }}"
@@ -253,7 +253,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('transactionDateInput');
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'); // [FIX] Safe access
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content'); 
     
     // Format Rupiah
     function formatNumber(num) {

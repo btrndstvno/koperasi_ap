@@ -121,24 +121,24 @@ $(document).ready(function() {
     });
     @endif
 
-    // Format currency input
-    const amountDisplay = document.getElementById('amountDisplay');
-    const amountHidden = document.getElementById('amount');
-
-    function formatNumber(num) {
-        return new Intl.NumberFormat('id-ID').format(num);
-    }
-
-    function unformatNumber(str) {
-        return parseInt(str.replace(/\D/g, '')) || 0;
-    }
-
-    amountDisplay.addEventListener('input', function() {
-        const val = unformatNumber(this.value);
-        amountHidden.value = val;
-        this.value = val > 0 ? formatNumber(val) : '';
+    document.getElementById('withdrawalForm').addEventListener('submit', function(e) {
+        const displayVal = document.getElementById('amountDisplay').value;
+        // Hapus titik untuk dapat angka murni
+        const amount = parseInt(displayVal.replace(/\./g, '')) || 0;
+        
+        if (amount < 10000) {
+            e.preventDefault();
+            Swal.fire({
+                icon: 'error',
+                title: 'Jumlah Tidak Valid',
+                text: 'Jumlah penarikan minimal Rp 10.000'
+            });
+            return false;
+        }
+        
+        // Isi input hidden dengan angka murni
+        document.getElementById('amount').value = amount;
     });
-
     // Form validation
     document.getElementById('withdrawalForm').addEventListener('submit', function(e) {
         const amount = unformatNumber(amountDisplay.value);

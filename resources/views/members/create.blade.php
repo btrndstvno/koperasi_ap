@@ -94,7 +94,7 @@
                             <label class="form-label">Saldo Simpanan Awal</label>
                             <div class="input-group">
                                 <span class="input-group-text">Rp</span>
-                                <input type="number" name="savings_balance" class="form-control input-currency @error('savings_balance') is-invalid @enderror" 
+                                <input type="text" name="savings_balance" class="form-control input-currency @error('savings_balance') is-invalid @enderror" 
                                        value="{{ old('savings_balance', 0) }}" min="0" step="1000">
                             </div>
                             <small class="text-muted">Opsional, default 0</small>

@@ -548,5 +548,30 @@
     </script>
     
     @stack('scripts')
+
+    <script>
+        // Fungsi Format Rupiah (Tanpa Rp, hanya titik)
+        function formatCurrency(angka) {
+            var number_string = angka.replace(/[^,\d]/g, '').toString(),
+                split = number_string.split(','),
+                sisa = split[0].length % 3,
+                rupiah = split[0].substr(0, sisa),
+                ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+            if (ribuan) {
+                separator = sisa ? '.' : '';
+                rupiah += separator + ribuan.join('.');
+            }
+
+            return split[1] != undefined ? rupiah + ',' + split[1] : rupiah;
+        }
+
+        // Event Listener Otomatis untuk semua input dengan class 'input-currency'
+        document.addEventListener('input', function (e) {
+            if (e.target.classList.contains('input-currency')) {
+                e.target.value = formatCurrency(e.target.value);
+            }
+        });
+    </script>
 </body>
 </html>

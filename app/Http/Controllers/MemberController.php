@@ -86,6 +86,13 @@ class MemberController extends Controller
      */
     public function store(Request $request)
     {
+
+        if ($request->has('savings_balance')) {
+            $request->merge([
+                'savings_balance' => str_replace('.', '', $request->savings_balance)
+            ]);
+        }
+
         $validated = $request->validate([
             'nik' => 'required|string|max:50|unique:members,nik',
             'name' => 'required|string|max:255',
@@ -227,6 +234,9 @@ class MemberController extends Controller
      */
     public function addSaving(Request $request, Member $member)
     {
+
+        $request->merge(['amount' => str_replace('.', '', $request->amount)]);
+
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1000',
             'transaction_date' => 'required|date',
@@ -260,6 +270,8 @@ class MemberController extends Controller
      */
     public function withdrawSaving(Request $request, Member $member)
     {
+
+        $request->merge(['amount' => str_replace('.', '', $request->amount)]);
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1000|max:' . $member->savings_balance,
             'transaction_date' => 'required|date',

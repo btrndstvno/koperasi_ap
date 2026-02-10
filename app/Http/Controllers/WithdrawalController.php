@@ -84,6 +84,8 @@ class WithdrawalController extends Controller
      */
     public function store(Request $request)
     {
+        $request->merge(['amount' => str_replace('.', '', $request->amount)]);
+        
         $validated = $request->validate([
             'member_id' => 'required|exists:members,id',
             'amount' => 'required|numeric|min:10000',

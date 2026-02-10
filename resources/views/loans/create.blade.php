@@ -62,9 +62,9 @@
                             <label class="form-label form-label-required">Pokok Pinjaman</label>
                             <div class="input-group">
                                 <span class="input-group-text">Rp</span>
-                                <input type="number" name="amount" id="amount" 
+                                <input type="text" name="amount" id="amount" 
                                        class="form-control input-currency @error('amount') is-invalid @enderror" 
-                                       value="{{ old('amount', 1000000) }}" required min="100000" step="100000">
+                                       value="{{ old('amount') }}" step="100000">
                             </div>
                             @error('amount')
                                 <div class="invalid-feedback">{{ $message }}</div>
@@ -74,7 +74,7 @@
                             <label class="form-label form-label-required">Durasi (Bulan)</label>
                             <select name="duration" id="duration" class="form-select @error('duration') is-invalid @enderror" required>
                                 @foreach([6, 10, 12, 18, 24, 36] as $dur)
-                                    <option value="{{ $dur }}" {{ old('duration', 12) == $dur ? 'selected' : '' }}>{{ $dur }} Bulan</option>
+                                    <option value="{{ $dur }}" {{ old('duration', 10) == $dur ? 'selected' : '' }}>{{ $dur }} Bulan</option>
                                 @endforeach
                             </select>
                             @error('duration')
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function calculateSimulation() {
-        const pokok = parseInt(amountInput.value) || 0;
+        const pokok = parseInt(amountInput.value.replace(/\./g, '')) || 0;
         const tenor = parseInt(durationSelect.value) || 1;
         const bungaPersen = parseFloat(interestInput.value) || 0;
         

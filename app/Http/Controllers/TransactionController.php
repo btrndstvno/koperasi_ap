@@ -206,6 +206,25 @@ class TransactionController extends Controller
      */
     public function storeBulk(Request $request)
     {
+    
+        $transactions = $request->input('transactions');
+
+        if (is_string($transactions)) {
+            $transactions = json_decode($transactions, true);
+        }
+
+        $cleanTransactions = [];
+        foreach ($transactions as $trx) {
+            // Bersihkan titik di setiap field nominal
+            $trx['amount_saving'] = str_replace('.', '', $trx['amount_saving'] ?? 0); // Iur Tunai
+            $trx['amount_principal'] = str_replace('.', '', $trx['amount_principal'] ?? 0); // Pot Kop (Angsuran)
+            $trx['other_amount'] = str_replace('.', '', $trx['other_amount'] ?? 0); // Iur Kop (Wajib)
+            
+            $cleanTransactions[] = $trx;
+        }
+
+        // Ganti input request dengan data bersih
+        $request->merge(['transactions' => $cleanTransactions]);
         // [LOG] Debug jumlah data yang masuk dari form/JSON
         Log::info("Bulk Store Start. Input Count: " . count($request->input('transactions', [])));
 
