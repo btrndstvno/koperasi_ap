@@ -10,12 +10,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithCalculatedFormulas;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
  * Import Excel Koperasi
  */
-class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
+class MonthlyTransactionImport implements ToCollection, WithMultipleSheets, WithCalculatedFormulas
 {
     protected string $sheetName;
     protected ?string $transactionDate = null;
@@ -317,7 +318,7 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
         $csdValue = $adiputroCsd;
         
         if (empty($csdValue)) {
-            $csdValue = !empty($dept) ? $dept : ($this->currentSection ?? '-');
+            $csdValue = $this->currentSection ?? '-';
         }
 
         if ($this->currentSection === 'Bangunan') {
@@ -551,14 +552,20 @@ class MonthlyTransactionImport implements ToCollection, WithMultipleSheets
     {
         $colIndex = $this->columnMap[$fieldKey] ?? null;
         if ($colIndex === null) return '';
-        return trim((string) ($row[$colIndex] ?? ''));
+        $value = trim((string) ($row[$colIndex] ?? ''));
+        // Skip formula strings (e.g. =VLOOKUP(...)) — treat as empty
+        if (str_starts_with($value, '=')) return '';
+        return $value;
     }
 
     protected function getNumericValue(array $row, string $fieldKey): float
     {
         $colIndex = $this->columnMap[$fieldKey] ?? null;
         if ($colIndex === null) return 0;
-        return $this->parseAmount($row[$colIndex] ?? null);
+        $value = $row[$colIndex] ?? null;
+        // Skip formula strings
+        if (is_string($value) && str_starts_with(trim($value), '=')) return 0;
+        return $this->parseAmount($value);
     }
 
     protected function parseAmount(mixed $value): float

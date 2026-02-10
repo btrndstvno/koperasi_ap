@@ -104,6 +104,7 @@ class MemberController extends Controller
         ]);
 
         $validated['savings_balance'] = $validated['savings_balance'] ?? 0;
+    $validated['dept'] = strtoupper($validated['dept']);
         
         // Jika group_tag Manager, CSD otomatis 'Manager'
         if ($validated['group_tag'] === 'Manager') {
@@ -202,6 +203,7 @@ class MemberController extends Controller
             'employee_status' => 'required|in:monthly,weekly',
         ]);
 
+        $validated['dept'] = strtoupper($validated['dept']);
         // Jika group_tag Manager, CSD otomatis 'Manager'
         if ($validated['group_tag'] === 'Manager') {
             $validated['csd'] = 'Manager';

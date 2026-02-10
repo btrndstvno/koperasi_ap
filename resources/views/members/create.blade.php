@@ -132,7 +132,22 @@ document.addEventListener('DOMContentLoaded', function() {
         tags: true,
         placeholder: '-- Pilih atau ketik baru --',
         allowClear: true,
-        width: '100%'
+        width: '100%',
+        createTag: function(params) {
+            var term = $.trim(params.term).toUpperCase();
+            if (term === '') return null;
+            return { id: term, text: term, newTag: true };
+        }
+    });
+
+    // Force uppercase on selection
+    deptSelect.on('select2:select', function(e) {
+        var val = e.params.data.text.toUpperCase();
+        if (e.params.data.text !== val) {
+            var $option = $(this).find('option[value="' + e.params.data.id + '"]');
+            $option.val(val).text(val);
+            $(this).val(val).trigger('change.select2');
+        }
     });
 
     // Form submission with loading state

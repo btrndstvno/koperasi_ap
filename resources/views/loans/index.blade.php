@@ -74,9 +74,20 @@
                 </div>
             </form>
             <div>
-                <a href="{{ route('exports.pending-loans') }}" class="btn btn-success">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Export Pending
-                </a>
+                <!-- Export Excel Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="{{ route('exports.loans') }}"><i class="bi bi-download me-2"></i>Semua Data</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ route('exports.loans', ['status' => 'pending']) }}"><i class="bi bi-hourglass-split me-2 text-warning"></i>Hanya Pending</a></li>
+                        <li><a class="dropdown-item" href="{{ route('exports.loans', ['status' => 'active']) }}"><i class="bi bi-check-circle me-2 text-primary"></i>Hanya Aktif</a></li>
+                        <li><a class="dropdown-item" href="{{ route('exports.loans', ['status' => 'paid']) }}"><i class="bi bi-check-all me-2 text-success"></i>Hanya Lunas</a></li>
+                        <li><a class="dropdown-item" href="{{ route('exports.loans', ['status' => 'rejected']) }}"><i class="bi bi-x-circle me-2 text-danger"></i>Hanya Ditolak</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </div>

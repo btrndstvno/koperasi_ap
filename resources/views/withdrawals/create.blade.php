@@ -123,8 +123,8 @@ $(document).ready(function() {
 
     document.getElementById('withdrawalForm').addEventListener('submit', function(e) {
         const displayVal = document.getElementById('amountDisplay').value;
-        // Hapus titik untuk dapat angka murni
-        const amount = parseInt(displayVal.replace(/\./g, '')) || 0;
+        // Hapus semua karakter non-digit (titik, koma, spasi, dll)
+        const amount = parseInt(displayVal.replace(/\D/g, '')) || 0;
         
         if (amount < 10000) {
             e.preventDefault();
@@ -138,20 +138,6 @@ $(document).ready(function() {
         
         // Isi input hidden dengan angka murni
         document.getElementById('amount').value = amount;
-    });
-    // Form validation
-    document.getElementById('withdrawalForm').addEventListener('submit', function(e) {
-        const amount = unformatNumber(amountDisplay.value);
-        if (amount < 10000) {
-            e.preventDefault();
-            Swal.fire({
-                icon: 'error',
-                title: 'Jumlah Tidak Valid',
-                text: 'Jumlah penarikan minimal Rp 10.000'
-            });
-            return false;
-        }
-        amountHidden.value = amount;
     });
 });
 </script>

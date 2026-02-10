@@ -54,15 +54,33 @@ class TransactionController extends Controller
         $targetMonthStart = $targetDate->copy()->startOfMonth();
         $targetMonthEnd = $targetDate->copy()->endOfMonth();
 
-        // Get all members with their loans and transactions
+        // [OPTIMIZATION] Eager load everything needed
+        // 1. Previous Month Transactions (for default values)
+        $prevMonthDate = $targetDate->copy()->subMonth();
+        $prevMonthYear = $prevMonthDate->year;
+        $prevMonthMonth = $prevMonthDate->month;
+        
+        // 2. Current Month Transactions (for existing/edited values)
+        $currentMonth = $targetDate->format('Y-m');
+
+        // Pre-fetch transactions to avoid N+1 inside loop
+        // We need: 
+        // - Last Deduction (any time before target)
+        // - Previous Month Deduction (specific month)
+        // - Current Month Deductions (specific month)
+        
         $members = Member::where('is_active', true)
         ->with(['loans', 'transactions' => function ($q) use ($targetMonthEnd) {
-            $q->where('transaction_date', '<=', $targetMonthEnd->toDateString());
+            // Load all transactions up to current month end
+            // We need history for balance calculation too
+            $q->where('transaction_date', '<=', $targetMonthEnd->toDateString())
+              ->orderBy('transaction_date', 'desc'); // Order by date desc for easier "latest" finding
         }])
         ->get()
-        ->map(function ($member) use ($targetDate, $targetMonthStart) {
-            // Find active loan in period (Logic Tetap Sama)
-            $activeLoanInPeriod = $member->loans->filter(function($loan) use ($targetDate) {
+        ->map(function ($member) use ($targetDate, $prevMonthYear, $prevMonthMonth, $currentMonth) {
+            
+            // A. Active Loan Logic (In-Memory Filtering)
+            $activeLoanInPeriod = $member->loans->first(function($loan) use ($targetDate) {
                  $baseDate = $loan->approved_date 
                     ? \Carbon\Carbon::parse($loan->approved_date) 
                     : \Carbon\Carbon::parse($loan->created_at);
@@ -71,7 +89,7 @@ class TransactionController extends Controller
                  $end = $start->copy()->addMonths($loan->duration - 1)->endOfMonth();
                  
                  return $targetDate->between($start, $end);
-            })->first();
+            });
 
             $pot_kop = 0;
             $sisa_pinjaman = 0;
@@ -98,7 +116,8 @@ class TransactionController extends Controller
                  }
             }
 
-            // Hitung Saldo Historis (Logic Tetap Sama)
+            // B. Saldo Historis Logic (In-Memory Calculation)
+            // Filter transactions collection instead of DB query
             $depositTypes = [
                 Transaction::TYPE_SAVING_DEPOSIT,
                 Transaction::TYPE_SAVING_INTEREST,
@@ -119,25 +138,56 @@ class TransactionController extends Controller
                 $saldoHistoris = (float) $member->savings_balance;
             }
 
-            // Logic Iuran Wajib (Logic Tetap Sama)
-            $lastDeduction = $member->transactions
-                ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
-                ->where('payment_method', 'deduction')
-                ->sortByDesc('transaction_date')
-                ->first();
+            // C. Iuran Wajib Default Logic (In-Memory)
+            // Filter from loaded transactions
             
-            $iur_kop_val = 0;
-            if ($lastDeduction) {
-                $iur_kop_val = $lastDeduction->total_amount;
+            // C.1. Previous Month Deduction
+            $prevMonthDeduction = $member->transactions->first(function ($t) use ($prevMonthYear, $prevMonthMonth) {
+                return $t->type === Transaction::TYPE_SAVING_DEPOSIT &&
+                       ($t->payment_method === 'payroll_deduction' || $t->payment_method === 'deduction') &&
+                       \Carbon\Carbon::parse($t->transaction_date)->year == $prevMonthYear &&
+                       \Carbon\Carbon::parse($t->transaction_date)->month == $prevMonthMonth;
+            });
+
+            $iur_kop_default = 0;
+            
+            if ($prevMonthDeduction) {
+                $iur_kop_default = $prevMonthDeduction->amount_saving;
             } else {
-                $firstDeposit = $member->transactions
-                    ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
-                    ->sortBy('transaction_date')
-                    ->first();
-                if ($firstDeposit) {
-                    $iur_kop_val = $firstDeposit->total_amount;
+                // C.2. Last Deduction (Fallback)
+                // Since relations are loaded desc, first match is last
+                $lastDeduction = $member->transactions->first(function ($t) {
+                     return $t->type === Transaction::TYPE_SAVING_DEPOSIT; // Simplified fallback
+                });
+                
+                if ($lastDeduction) {
+                    $iur_kop_default = $lastDeduction->amount_saving;
                 }
             }
+
+            // D. Current Month Existing Values (In-Memory)
+            $currentMonthTrx = $member->transactions->filter(function ($t) use ($currentMonth) {
+                return substr($t->transaction_date, 0, 7) === $currentMonth;
+            });
+
+            $existingPotKop = $currentMonthTrx->first(function ($t) {
+                return $t->type === Transaction::TYPE_LOAN_REPAYMENT && $t->payment_method === 'payroll_deduction';
+            });
+
+            $existingIurKop = $currentMonthTrx->first(function ($t) {
+                return $t->type === Transaction::TYPE_SAVING_DEPOSIT && $t->payment_method === 'payroll_deduction';
+            });
+
+            $existingIurTunai = $currentMonthTrx->first(function ($t) {
+                return $t->type === Transaction::TYPE_SAVING_DEPOSIT && $t->payment_method === 'cash';
+            });
+                
+            // Final Values
+            $final_pot_kop = $existingPotKop ? $existingPotKop->amount_principal : ($activeLoanInPeriod ? $pot_kop : 0);
+            $final_iur_kop = $existingIurKop ? $existingIurKop->amount_saving : $iur_kop_default;
+            $final_iur_tunai = $existingIurTunai ? $existingIurTunai->amount_saving : 0;
+            
+            $notes = $existingPotKop?->notes ?? ($existingIurKop?->notes ?? ($existingIurTunai?->notes ?? ''));
             
             return (object) [
                 'id' => $member->id,
@@ -146,16 +196,16 @@ class TransactionController extends Controller
                 'name' => $member->name,
                 'group_tag' => $member->group_tag ?? 'Office',
                 'dept' => $member->dept,
-                // [FIX] Tampilkan CSD asli, fallback ke dept/tag jika kosong
                 'csd' => !empty($member->csd) ? $member->csd : ($member->dept ?? '-'), 
                 'savings_balance' => (float) $saldoHistoris,
                 'has_loan' => $loan_id !== null,
                 'loan_id' => $loan_id,
                 'remaining_principal' => (float) $sisa_pinjaman,
                 'remaining_installments' => $remaining_installments,
-                'pot_kop' => (float) $pot_kop,
-                'iur_kop' => (float) $iur_kop_val, 
-                'iur_tunai' => 0,
+                'pot_kop' => (float) $final_pot_kop, 
+                'iur_kop' => (float) $final_iur_kop, 
+                'iur_tunai' => (float) $final_iur_tunai, 
+                'notes' => $notes, 
             ];
         })
         ->sortBy('nik_numeric');
@@ -216,9 +266,10 @@ class TransactionController extends Controller
         $cleanTransactions = [];
         foreach ($transactions as $trx) {
             // Bersihkan titik di setiap field nominal
-            $trx['amount_saving'] = str_replace('.', '', $trx['amount_saving'] ?? 0); // Iur Tunai
-            $trx['amount_principal'] = str_replace('.', '', $trx['amount_principal'] ?? 0); // Pot Kop (Angsuran)
-            $trx['other_amount'] = str_replace('.', '', $trx['other_amount'] ?? 0); // Iur Kop (Wajib)
+            // KEYS MUST MATCH INPUT FORM: iur_tunai, pot_kop, iur_kop
+            if (isset($trx['iur_tunai'])) $trx['iur_tunai'] = str_replace('.', '', $trx['iur_tunai']);
+            if (isset($trx['pot_kop'])) $trx['pot_kop'] = str_replace('.', '', $trx['pot_kop']);
+            if (isset($trx['iur_kop'])) $trx['iur_kop'] = str_replace('.', '', $trx['iur_kop']);
             
             $cleanTransactions[] = $trx;
         }
@@ -393,13 +444,193 @@ class TransactionController extends Controller
         }
     }
     /**
+     * Update single transaction via AJAX (Auto-save).
+     */
+    public function updateSingleTransaction(Request $request)
+    {
+        $request->validate([
+            'member_id' => 'required|exists:members,id',
+            'transaction_date' => 'required|date',
+            'field' => 'required|in:pot_kop,iur_kop,iur_tunai,notes',
+            'value' => 'nullable', // string or number
+            'loan_id' => 'nullable|exists:loans,id',
+        ]);
+
+        DB::beginTransaction();
+
+        try {
+            $member = Member::find($request->member_id);
+            $date = $request->transaction_date;
+            $field = $request->field;
+            $value = $request->value;
+            // Clean number format
+            if (in_array($field, ['pot_kop', 'iur_kop', 'iur_tunai'])) {
+                $value = (float) str_replace('.', '', $value);
+            }
+
+            // Determine Transaction Attributes based on field
+            $type = null;
+            $method = null;
+            $isNote = false;
+
+            if ($field === 'pot_kop') {
+                $type = Transaction::TYPE_LOAN_REPAYMENT;
+                $method = 'payroll_deduction';
+            } elseif ($field === 'iur_kop') {
+                $type = Transaction::TYPE_SAVING_DEPOSIT;
+                $method = 'payroll_deduction';
+            } elseif ($field === 'iur_tunai') {
+                $type = Transaction::TYPE_SAVING_DEPOSIT;
+                $method = 'cash';
+            } elseif ($field === 'notes') {
+                $isNote = true;
+            }
+
+            // For notes, we need to update ALL related transactions for this bulk entry context
+            if ($isNote) {
+                // Find all relevant transactions (pot_kop, iur_kop, iur_tunai) and update notes
+                Transaction::where('member_id', $member->id)
+                    ->where('transaction_date', $date)
+                    ->whereIn('payment_method', ['payroll_deduction', 'cash'])
+                    ->whereIn('type', [Transaction::TYPE_LOAN_REPAYMENT, Transaction::TYPE_SAVING_DEPOSIT])
+                    ->update(['notes' => $value]);
+                
+                DB::commit();
+                return response()->json(['success' => true]);
+            }
+
+            // Find Existing Transaction (Handle Legacy 'deduction' and Duplicates)
+            $query = Transaction::where('member_id', $member->id)
+                ->where('transaction_date', $date)
+                ->where('type', $type);
+                
+            if ($method === 'payroll_deduction') {
+                // Check both new and legacy methods
+                $query->whereIn('payment_method', ['payroll_deduction', 'deduction']);
+            } else {
+                $query->where('payment_method', $method);
+            }
+
+            $transactions = $query->get();
+            $trx = null;
+
+            if ($transactions->count() > 1) {
+                // [FIX] Handle Duplicates: Keep first, delete others
+                $trx = $transactions->first();
+                $duplicates = $transactions->slice(1);
+                foreach ($duplicates as $dupe) {
+                    // Logic: Just delete, we will reset the target transaction value anyway
+                    $dupe->delete();
+                }
+            } else {
+                $trx = $transactions->first();
+            }
+
+            $oldAmount = $trx ? $trx->total_amount : 0;
+            $diff = $value - $oldAmount;
+
+            // Optimization: If no change, return early
+            if ($diff == 0 && $trx) {
+                DB::commit();
+                return response()->json(['success' => true]);
+            }
+
+            // Handling Logic
+            if ($type === Transaction::TYPE_SAVING_DEPOSIT) {
+                // Update Member Balance
+                $member->increment('savings_balance', $diff);
+                
+                // Create or Update Transaction
+                if ($trx) {
+                    $trx->update([
+                        'amount_saving' => $value,
+                        'total_amount' => $value,
+                        'payment_method' => $method, // Standardize to new method
+                    ]);
+                } else {
+                    if ($value > 0) {
+                        Transaction::create([
+                            'member_id' => $member->id,
+                            'transaction_date' => $date,
+                            'type' => $type,
+                            'amount_saving' => $value,
+                            'total_amount' => $value,
+                            'payment_method' => $method,
+                            'notes' => $method === 'cash' ? 'Iuran simpanan - tunai' : 'Iuran simpanan - potong gaji',
+                        ]);
+                    }
+                }
+            } elseif ($type === Transaction::TYPE_LOAN_REPAYMENT) {
+                $loan = null;
+                if ($request->loan_id) {
+                    $loan = Loan::find($request->loan_id);
+                } else {
+                    $loan = $trx ? $trx->loan : $member->activeLoans()->first();
+                }
+
+                if ($loan) {
+                    // Update Remaining Principal
+                    $loan->decrement('remaining_principal', $diff);
+                    
+                    // Check paid status
+                    $loan->fresh(); 
+                    if ($loan->remaining_principal <= 0 && $loan->status === 'active') {
+                        $loan->update(['status' => 'paid', 'remaining_principal' => 0]);
+                    } elseif ($loan->remaining_principal > 0 && $loan->status === 'paid') {
+                        $loan->update(['status' => 'active']);
+                    }
+                }
+
+                if ($trx) {
+                    $trx->update([
+                        'amount_principal' => $value,
+                        'total_amount' => $value,
+                        'loan_id' => $loan ? $loan->id : null,
+                        'payment_method' => $method, // Standardize
+                    ]);
+                } else {
+                    if ($value > 0) {
+                        Transaction::create([
+                            'member_id' => $member->id,
+                            'loan_id' => $loan ? $loan->id : null,
+                            'transaction_date' => $date,
+                            'type' => $type,
+                            'amount_principal' => $value,
+                            'total_amount' => $value,
+                            'payment_method' => $method,
+                            'notes' => 'Cicilan pinjaman - potong gaji',
+                        ]);
+                    }
+                }
+            }
+            
+            // Cleanup: If transaction becomes 0, delete it
+            if ($trx && $value == 0) {
+                $trx->delete();
+            }
+
+            DB::commit();
+
+            // Ensure we have a loan object to return correct remaining balance
+            if (!isset($loan) || !$loan) {
+                $loan = $member->activeLoans()->first();
+            }
+
+            return response()->json([
+                'success' => true, 
+                'new_balance' => $member->fresh()->savings_balance,
+                'new_loan_remaining' => $loan ? $loan->fresh()->remaining_principal : 0
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error("AutoSave Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
      * Delete a transaction with auto-rollback.
-     * 
-     * SMART DELETE (Rollback Saldo):
-     * - saving_deposit: KURANGI member.savings_balance
-     * - saving_withdraw: TAMBAH member.savings_balance
-     * - loan_repayment: TAMBAH loan.remaining_principal, cek status paid->active
-     * - interest_revenue/admin_fee/loan_disbursement: Tidak bisa dihapus (sistem)
      */
     public function destroy(Transaction $transaction)
     {

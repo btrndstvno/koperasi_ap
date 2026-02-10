@@ -294,9 +294,10 @@
 <div class="modal fade" id="withdrawSavingModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="{{ route('withdrawals.store') }}" method="POST">
+            <form action="{{ route('withdrawals.store') }}" method="POST" id="withdrawModalForm">
                 @csrf
                 <input type="hidden" name="member_id" value="{{ $member->id }}">
+                <input type="hidden" name="amount" id="withdrawAmountHidden">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-dash-circle me-2"></i>Pengajuan Penarikan Simpanan</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -313,8 +314,9 @@
                         <label class="form-label form-label-required">Nominal Penarikan</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="number" name="amount" class="form-control input-currency" required min="10000" max="{{ $member->savings_balance }}" step="1000">
+                            <input type="text" id="withdrawAmountDisplay" class="form-control input-currency" required placeholder="0">
                         </div>
+                        <small class="text-muted">Minimal Rp 10.000 — Maksimal Rp {{ number_format($member->savings_balance, 0, ',', '.') }}</small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Catatan</label>
@@ -464,5 +466,39 @@
 @endsection
 
 @push('scripts')
-{{-- Script khusus member detail dapat ditambahkan di sini jika perlu --}}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const withdrawForm = document.getElementById('withdrawModalForm');
+    if (withdrawForm) {
+        withdrawForm.addEventListener('submit', function(e) {
+            const displayVal = document.getElementById('withdrawAmountDisplay').value;
+            // Strip semua karakter non-digit
+            const amount = parseInt(displayVal.replace(/\D/g, '')) || 0;
+            const maxBalance = {{ $member->savings_balance }};
+
+            if (amount < 10000) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Jumlah Tidak Valid',
+                    text: 'Jumlah penarikan minimal Rp 10.000'
+                });
+                return false;
+            }
+
+            if (amount > maxBalance) {
+                e.preventDefault();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Saldo Tidak Cukup',
+                    text: 'Jumlah penarikan melebihi saldo tersedia (Rp ' + new Intl.NumberFormat('id-ID').format(maxBalance) + ')'
+                });
+                return false;
+            }
+
+            document.getElementById('withdrawAmountHidden').value = amount;
+        });
+    }
+});
+</script>
 @endpush

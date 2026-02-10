@@ -87,6 +87,7 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // Bulk Transactions
     Route::get('/transactions/bulk', [TransactionController::class, 'createBulk'])->name('transactions.bulk.create');
     Route::post('/transactions/bulk', [TransactionController::class, 'storeBulk'])->name('transactions.bulk.store');
+    Route::post('/transactions/bulk/update-single', [TransactionController::class, 'updateSingleTransaction'])->name('transactions.bulk.update-single');
     Route::delete('/transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
 
     // Import Excel
@@ -98,4 +99,6 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     // Exports
     Route::get('/exports/members', [ExportController::class, 'members'])->name('exports.members');
     Route::get('/exports/pending-loans', [ExportController::class, 'pendingLoans'])->name('exports.pending-loans');
+    Route::get('/exports/withdrawals', [ExportController::class, 'withdrawals'])->name('exports.withdrawals');
+    Route::get('/exports/loans', [ExportController::class, 'loans'])->name('exports.loans');
 });

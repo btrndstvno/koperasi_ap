@@ -8,7 +8,21 @@
         <h2 class="fw-bold text-dark">Penarikan Saldo</h2>
         <p class="text-muted">Kelola pengajuan penarikan saldo simpanan anggota</p>
     </div>
-    <div class="col-md-6 text-end">
+    <div class="col-md-6 text-end d-flex justify-content-end gap-2">
+        <!-- Export Excel Dropdown -->
+        <div class="dropdown">
+            <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ route('exports.withdrawals') }}"><i class="bi bi-download me-2"></i>Semua Data</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ route('exports.withdrawals', ['status' => 'pending']) }}"><i class="bi bi-hourglass-split me-2 text-warning"></i>Hanya Pending</a></li>
+                <li><a class="dropdown-item" href="{{ route('exports.withdrawals', ['status' => 'approved']) }}"><i class="bi bi-check-circle me-2 text-success"></i>Hanya Disetujui</a></li>
+                <li><a class="dropdown-item" href="{{ route('exports.withdrawals', ['status' => 'rejected']) }}"><i class="bi bi-x-circle me-2 text-danger"></i>Hanya Ditolak</a></li>
+            </ul>
+        </div>
+
         @if(Auth::user()->isMember())
             @php
                 $member = Auth::user()->member;
