@@ -202,12 +202,17 @@ class WithdrawalController extends Controller
             ->with('success', 'Pengajuan penarikan saldo telah ditolak.');
     }
 
-    /**
-     * Print withdrawal document.
-     */
-    public function print(Withdrawal $withdrawal)
+    // /**
+    //  * Print withdrawal document.
+    //  */
+    // public function print(Withdrawal $withdrawal)
+    // {
+    //     $withdrawal->load('member');
+    //     return view('withdrawals.print', compact('withdrawal'));
+    // }
+    
+    public function printForm()
     {
-        $withdrawal->load('member');
-        return view('withdrawals.print', compact('withdrawal'));
+        return view('withdrawals.print-form');
     }
 }

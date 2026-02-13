@@ -48,15 +48,15 @@ class LoansExport implements FromCollection, WithHeadings, WithMapping, WithStyl
             'DEPT',
             'GROUP',
             'TGL PENGAJUAN',
-            'TGL DISETUJUI', // Added
+            'TGL DISETUJUI',
             'JUMLAH PINJAMAN',
             'DURASI (BULAN)',
             'CICILAN/BULAN',
             'BUNGA (%)',
             'TOTAL BUNGA',
             'BIAYA ADMIN',
-            'DITERIMA', // Disbursed
-            'SISA POKOK', // Added
+            'DITERIMA', 
+            'SISA POKOK', 
             'STATUS',
         ];
     }

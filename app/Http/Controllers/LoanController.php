@@ -286,11 +286,11 @@ class LoanController extends Controller
     /**
      * Print SPJ (Surat Perjanjian) for a loan.
      */
-    public function print(Loan $loan)
-    {
-        $loan->load('member');
-        return view('loans.print', compact('loan'));
-    }
+    // public function print(Loan $loan)
+    // {
+    //     $loan->load('member');
+    //     return view('loans.print', compact('loan'));
+    // }
 
     /**
      * Display the specified loan.
@@ -392,5 +392,9 @@ class LoanController extends Controller
             DB::rollBack();
             return back()->with('error', 'Gagal memproses: ' . $e->getMessage());
         }
+    }
+    public function printForm()
+    {
+        return view('loans.print-form');
     }
 }

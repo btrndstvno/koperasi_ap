@@ -50,9 +50,9 @@
                 @if(Auth::user()->isAdmin())
                 <div class="mt-3 pt-3 border-top">
                     <!-- Changed to Modal Trigger -->
-                    <button onclick="showPrintModal('{{ route('loans.print', $loan) }}?modal=1')" type="button" class="btn btn-outline-primary me-2">
+                    <!-- <button onclick="showPrintModal('{{ route('loans.print', $loan) }}?modal=1')" type="button" class="btn btn-outline-primary me-2">
                         <i class="bi bi-printer me-1"></i> Cetak SPJ
-                    </button>
+                    </button> -->
                     
                     @if($loan->isPending())
                     <button type="button" class="btn btn-warning me-2 fw-medium" data-bs-toggle="modal" data-bs-target="#editModal">
@@ -489,7 +489,7 @@
                 <h5 class="modal-title"><i class="bi bi-printer me-2"></i>Pratinjau Cetak SPJ</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body p-0" style="height: 80vh; background: #525659;"> <!-- Dark background like PDF viewer -->
+            <div class="modal-body p-0" style="height: 80vh;">
                 <iframe id="printFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
             </div>
             <div class="modal-footer">

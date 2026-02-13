@@ -14,6 +14,9 @@
             <button class="btn btn-success dropdown-toggle" type="button" data-bs-toggle="dropdown">
                 <i class="bi bi-file-earmark-excel me-1"></i> Export Excel
             </button>
+            <button type="button" class="btn btn-secondary ms-2" onclick="loadPrintPreview('{{ route('withdrawals.print-form') }}?modal=1')">
+                <i class="fas fa-print"></i> Print Form Penarikan
+            </button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="{{ route('exports.withdrawals') }}"><i class="bi bi-download me-2"></i>Semua Data</a></li>
                 <li><hr class="dropdown-divider"></li>
@@ -148,12 +151,12 @@
                                         <i class="bi bi-x-lg"></i>
                                     </button>
                                 @endif
-                                @if(Auth::user()->isAdmin()) <!-- Allow print for any status (Draft or Approved) -->
+                                <!-- @if(Auth::user()->isAdmin())
                                     <button type="button" class="btn btn-sm btn-outline-info" title="Cetak Formulir"
                                         onclick="loadPrintPreview('{{ route('withdrawals.print', $withdrawal) }}?modal=1')">
                                         <i class="bi bi-printer"></i>
                                     </button>
-                                @endif
+                                @endif -->
                                 
                             </div>
                         </td>
