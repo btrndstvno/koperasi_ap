@@ -13,11 +13,10 @@
             font-family: Arial, Helvetica, sans-serif;
             font-size: 11pt;
             color: #000;
-            line-height: 1.3;
+            line-height: 1.4;
             margin: 0;
-            padding: 20px;
+            padding: 0;
         }
-        /* Tombol Print (Hanya tampil di Modal) */
         .no-print {
             text-align: center;
             margin-bottom: 20px;
@@ -41,20 +40,24 @@
             body { padding: 0; }
         }
 
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 3px double #000; padding-bottom: 10px; }
+        .header { 
+            text-align: center; 
+            margin-bottom: 25px; 
+            border-bottom: 3px double #000; 
+            padding-bottom: 10px; 
+        }
         .header h1 { font-size: 16pt; font-weight: bold; margin: 0; text-transform: uppercase; }
         .header h2 { font-size: 12pt; font-weight: bold; margin: 5px 0 0 0; text-transform: uppercase; }
 
-        .content { margin-top: 10px; }
+        .content { margin-top: 15px; }
         
-        /* Table Layout Presisi */
+        /* Table Form Layout */
         .form-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-        .form-table td { padding: 5px 0; vertical-align: bottom; }
+        .form-table td { padding: 6px 0; vertical-align: bottom; }
         
-        .col-label { width: 200px; font-weight: normal; }
+        .col-label { width: 220px; font-weight: normal; }
         .col-sep { width: 20px; text-align: center; }
-        /* Garis Solid */
-        .col-input { border-bottom: 1px solid #000; height: 20px; } 
+        .col-input { border-bottom: 1px solid #000; height: 22px; }
         
         .amount-box {
             border: 2px solid #000;
@@ -62,26 +65,41 @@
             margin: 15px 0;
         }
 
-        .signature-section {
-            display: flex;
-            justify-content: space-between;
+        /* Signature Table Layout */
+        .sig-table {
+            width: 100%;
             margin-top: 40px;
             text-align: center;
+            border-collapse: collapse;
         }
-        .sig-box { width: 30%; }
-        .sig-space { height: 80px; }
-        .sig-name { border-bottom: 1px solid #000; font-weight: bold; }
+        .sig-table td {
+            vertical-align: top;
+        }
+        .sig-spacer {
+            height: 110px; 
+        }
+        .sig-name {
+            border-top: 1px solid #000;
+            display: inline-block;
+            padding-top: 5px;
+            width: 80%;
+            font-weight: bold;
+        }
+        
+        ol li {
+            margin-bottom: 5px;
+            padding-left: 5px;
+        }
     </style>
 </head>
 <body>
-
     <div class="header">
         <h1>FORMULIR PENGAJUAN PINJAMAN</h1>
         <h2>KOPERASI KARYAWAN PT ADIPUTRO WIRASEJATI MALANG</h2>
     </div>
 
     <div class="content">
-        <p>Yang bertanda tangan di bawah ini, saya:</p>
+        <p style="margin-bottom: 15px;">Yang bertanda tangan di bawah ini, saya:</p>
         
         <table class="form-table">
             <tr>
@@ -101,14 +119,14 @@
             </tr>
         </table>
 
-        <p><strong>Mengajukan Pinjaman</strong> dari Koperasi Karyawan dengan rincian sebagai berikut:</p>
+        <p style="margin-bottom: 10px;"><strong>Mengajukan Pinjaman</strong> dari Koperasi Karyawan dengan rincian sebagai berikut:</p>
 
         <div class="amount-box">
             <table class="form-table" style="margin-bottom: 0;">
                 <tr>
                     <td class="col-label">Nilai / Jumlah Pinjaman</td>
                     <td class="col-sep">:</td>
-                    <td style="border-bottom: 1px solid #000; font-weight: bold;">Rp </td>
+                    <td style="border-bottom: 1px solid #000; font-weight: bold; font-size: 1.1em;">Rp </td>
                 </tr>
                 <tr>
                     <td class="col-label">Jangka Waktu</td>
@@ -125,44 +143,57 @@
                     <td class="col-sep">:</td>
                     <td style="color: red; border-bottom: 1px solid #000;">- Rp </td>
                 </tr>
-                <tr style="height: 10px;"></tr> <tr>
+                <tr><td colspan="3" style="height: 10px;"></td></tr>
+                
+                <tr>
                     <td class="col-label" style="font-weight: bold;">Uang yang Diterima</td>
                     <td class="col-sep">:</td>
-                    <td style="border-bottom: 2px solid #000; font-weight: bold;">Rp </td>
+                    <td style="border-bottom: 2px solid #000; font-weight: bold; font-size: 1.1em;">Rp </td>
                 </tr>
                 <tr>
                     <td class="col-label">Cicilan per Bulan</td>
                     <td class="col-sep">:</td>
-                    <td style="border-bottom: 1px solid #000; font-weight: bold;">Rp </td>
+                    <td style="border-bottom: 1px solid #000; font-weight: bold; font-size: 1.1em;">Rp </td>
                 </tr>
             </table>
         </div>
 
         <p>Selanjutnya saya menyatakan <strong>BERSEDIA</strong> untuk:</p>
-        <ol style="margin-top: 5px; padding-left: 20px;">
+        <ol style="margin-top: 5px; padding-left: 25px;">
             <li>Bersedia dikurangi/dipotong sebagian dari gaji untuk membayar angsuran setiap bulannya sesuai jangka waktu yang disetujui. </li>
             <li>Bersedia dipotong dari gaji untuk membayar seluruh sisa pinjaman bila status keanggotaanya sudah tidak aktif lagi. </li>
             <li>Menerima jumlah pinjaman yang disetujui oleh Bendahara Koperasi.</li>
         </ol>
     </div>
 
-    <div class="signature-section">
-        <div class="sig-box">
-            <p>Disetujui Oleh,</p>
-            <div class="sig-space"></div>
-            <div class="sig-name">Bendahara / Admin</div>
-        </div>
-        <div class="sig-box">
-            <p>Mengetahui,</p>
-            <div class="sig-space"></div>
-            <div class="sig-name">Kepala Departemen</div>
-        </div>
-        <div class="sig-box">
-            <p>Malang, ........................ 20...</p>
-            <p>Diterima Oleh,</p>
-            <div class="sig-space" style="height: 45px;"></div>
-            <div class="sig-name">( Nama Jelas )</div>
-        </div>
-    </div>
+    <table class="sig-table">
+        <tr>
+            <td style="width: 33%;"></td>
+            <td style="width: 33%;"></td>
+            <td style="width: 33%; padding-bottom: 5px;">Malang, ........................ 20...</td>
+        </tr>
+        <tr>
+            <td>Disetujui Oleh,</td>
+            <td>Mengetahui,</td>
+            <td>Diterima Oleh,</td>
+        </tr>
+        <tr>
+            <td class="sig-spacer"></td>
+            <td class="sig-spacer"></td>
+            <td class="sig-spacer"></td>
+        </tr>
+        <tr>
+            <td>
+                <span class="sig-name">Bendahara / Admin</span>
+            </td>
+            <td>
+                <span class="sig-name">Kepala Departemen</span>
+            </td>
+            <td>
+                <span class="sig-name">Peminjam</span>
+            </td>
+        </tr>
+    </table>
+
 </body>
 </html>
