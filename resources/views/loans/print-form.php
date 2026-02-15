@@ -7,13 +7,13 @@
     <style>
         @page {
             size: 215mm 330mm; /* F4 */
-            margin: 15mm 20mm;
+            margin: 10mm 15mm;
         }
         body {
             font-family: Arial, Helvetica, sans-serif;
-            font-size: 11pt;
+            font-size: 10pt;
             color: #000;
-            line-height: 1.4;
+            line-height: 1.3;
             margin: 0;
             padding: 0;
         }
@@ -40,160 +40,286 @@
             body { padding: 0; }
         }
 
-        .header { 
-            text-align: center; 
-            margin-bottom: 25px; 
-            border-bottom: 3px double #000; 
-            padding-bottom: 10px; 
-        }
-        .header h1 { font-size: 16pt; font-weight: bold; margin: 0; text-transform: uppercase; }
-        .header h2 { font-size: 12pt; font-weight: bold; margin: 5px 0 0 0; text-transform: uppercase; }
-
-        .content { margin-top: 15px; }
-        
-        /* Table Form Layout */
-        .form-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-        .form-table td { padding: 6px 0; vertical-align: bottom; }
-        
-        .col-label { width: 220px; font-weight: normal; }
-        .col-sep { width: 20px; text-align: center; }
-        .col-input { border-bottom: 1px solid #000; height: 22px; }
-        
-        .amount-box {
-            border: 2px solid #000;
-            padding: 15px;
-            margin: 15px 0;
+        /* =============== SECTION 1: PENGAJUAN =============== */
+        .section-pengajuan {
+            border: none;
+            padding-bottom: 5px;
+            margin-bottom: 0;
         }
 
-        /* Signature Table Layout */
-        .sig-table {
-            width: 100%;
-            margin-top: 40px;
-            text-align: center;
-            border-collapse: collapse;
+        .header-pengajuan {
+            margin-bottom: 10px;
         }
-        .sig-table td {
-            vertical-align: top;
-        }
-        .sig-spacer {
-            height: 110px; 
-        }
-        .sig-name {
-            border-top: 1px solid #000;
+        .header-pengajuan .title-box {
+            background-color: #e74c3c;
+            color: #fff;
             display: inline-block;
-            padding-top: 5px;
-            width: 80%;
+            padding: 3px 10px;
+            font-size: 12pt;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        .header-pengajuan .subtitle-box {
+            background-color: #27ae60;
+            color: #fff;
+            display: inline-block;
+            padding: 3px 10px;
+            font-size: 11pt;
             font-weight: bold;
         }
+
+        .photo-box {
+            float: right;
+            width: 70px;
+            height: 90px;
+            border: 1px solid #000;
+            margin-top: 0;
+        }
+
+        .content { margin-top: 10px; }
+
+        /* Table Form Layout */
+        .form-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+        .form-table td { padding: 6px 0; vertical-align: bottom; }
         
-        ol li {
-            margin-bottom: 5px;
-            padding-left: 5px;
+        .col-label { width: 180px; font-weight: normal; }
+        .col-sep { width: 15px; text-align: center; }
+        .col-input { border-bottom: 1px solid #000; height: 20px; }
+
+        .amount-line {
+            border-bottom: 1px solid #000;
+            display: inline-block;
+            width: 100%;
+            min-height: 20px;
+            margin-top: 5px;
+        }
+
+        .amount-box-pengajuan {
+            border: 1px solid #000;
+            padding: 5px 10px;
+            margin: 5px 0;
+            text-align: center;
+        }
+
+        ol { margin: 3px 0; padding-left: 25px; }
+        ol li { margin-bottom: 3px; padding-left: 3px; font-size: 9.5pt; }
+
+        /* Signature areas */
+        .sig-area {
+            width: 100%;
+            margin-top: 10px;
+        }
+        .sig-area td {
+            vertical-align: top;
+        }
+        .sig-spacer-small {
+            height: 80px;
+        }
+
+        /* Horizontal divider between sections */
+        .section-divider {
+            border-top: 1px solid #000;
+            margin: 8px 0;
+        }
+
+        /* =============== SECTION 2: PERSETUJUAN =============== */
+        .section-persetujuan {
+            padding-top: 5px;
+        }
+
+        .header-persetujuan {
+            margin-bottom: 10px;
+        }
+        .header-persetujuan .title-box {
+            background-color: #27ae60;
+            color: #fff;
+            display: inline-block;
+            padding: 3px 10px;
+            font-size: 12pt;
+            font-weight: bold;
+        }
+
+        .persetujuan-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 8px; 
+        }
+        .persetujuan-table td { 
+            padding: 8px 0; 
+            vertical-align: bottom; 
+        }
+        .persetujuan-label { 
+            width: 250px; 
+        }
+        .persetujuan-sep { 
+            width: 30px; 
+            text-align: left; 
+        }
+        .persetujuan-value { 
+            border-bottom: 1px solid #000; 
+        }
+        .persetujuan-minus {
+            width: 30px;
+            text-align: right;
+            padding-right: 8px !important;
+        }
+
+        .sig-name-line {
+            border-top: none;
+            display: inline-block;
+            padding-top: 3px;
+            font-size: 9.5pt;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>FORMULIR PENGAJUAN PINJAMAN</h1>
-        <h2>KOPERASI KARYAWAN PT ADIPUTRO WIRASEJATI MALANG</h2>
-    </div>
 
-    <div class="content">
-        <p style="margin-bottom: 15px;">Yang bertanda tangan di bawah ini, saya:</p>
-        
-        <table class="form-table">
-            <tr>
-                <td class="col-label">Nama Lengkap</td>
-                <td class="col-sep">:</td>
-                <td class="col-input"></td>
-            </tr>
-            <tr>
-                <td class="col-label">NIK</td>
-                <td class="col-sep">:</td>
-                <td class="col-input"></td>
-            </tr>
-            <tr>
-                <td class="col-label">Departemen</td>
-                <td class="col-sep">:</td>
-                <td class="col-input"></td>
-            </tr>
-        </table>
+    <!-- ==================== SECTION 1: FORMULIR PENGAJUAN PINJAMAN ==================== -->
+    <div class="section-pengajuan">
+        <div class="header-pengajuan">
+            <div class="photo-box"></div>
+            <div class="title-box">FORMULIR PENGAJUAN PINJAMAN</div><br>
+            <div class="subtitle-box">KOPERASI KARYAWAN PT ADIPUTRO WIRASEJATI<br>MALANG</div>
+        </div>
 
-        <p style="margin-bottom: 10px;"><strong>Mengajukan Pinjaman</strong> dari Koperasi Karyawan dengan rincian sebagai berikut:</p>
+        <div style="clear: both;"></div>
 
-        <div class="amount-box">
-            <table class="form-table" style="margin-bottom: 0;">
+        <div class="content">
+            <p style="margin: 5px 0;">Yang bertandatangan dibawah ini,</p>
+
+            <table class="form-table">
                 <tr>
-                    <td class="col-label">Nilai / Jumlah Pinjaman</td>
+                    <td class="col-label">NAMA</td>
                     <td class="col-sep">:</td>
-                    <td style="border-bottom: 1px solid #000; font-weight: bold; font-size: 1.1em;">Rp </td>
+                    <td class="col-input"></td>
                 </tr>
                 <tr>
-                    <td class="col-label">Jangka Waktu</td>
+                    <td class="col-label">NIK</td>
                     <td class="col-sep">:</td>
-                    <td style="font-weight: bold;">10 Bulan</td> 
+                    <td class="col-input"></td>
                 </tr>
                 <tr>
-                    <td class="col-label">Bunga (10%)</td> 
+                    <td class="col-label">Departemen</td>
                     <td class="col-sep">:</td>
-                    <td style="color: red; border-bottom: 1px solid #000;">- Rp </td> 
+                    <td class="col-input"></td>
+                </tr>
+            </table>
+
+            <table class="form-table" style="margin-bottom: 5px;">
+                <tr>
+                    <td style="font-weight: bold; white-space: nowrap;">Mengajukan Pinjaman sebesar : Rp.</td>
+                    <td class="col-input" style="width: 100%;"></td>
+                </tr>
+            </table>
+
+            <div class="amount-box-pengajuan">
+                <span class="amount-line"></span>
+            </div>
+
+            <p style="margin: 5px 0;">Dan, menyetujui SYARAT Pengajuan PINJAMAN yaitu :</p>
+
+            <ol>
+                <li>Bersedia dikurangi/dipotong sebagian dari gaji untuk membayar angsuran setiap bulannya sebanyak 10x dari Jumlah Pengajuan Pinjaman yang disetujui.</li>
+                <li>Bersedia dipotong dari gaji untuk membayar seluruh sisa pinjaman bila status keanggotaannya sudah tidak aktif lagi.</li>
+                <li>Menerima jumlah pinjaman yang di setujui oleh Bendahara Koperasi.</li>
+                <li>Tidak memiliki tanggungan pinjaman yang masih sedang berjalan.</li>
+            </ol>
+
+            <table class="sig-area" style="margin-top: 15px;">
+                <tr>
+                    <td style="width: 50%; text-align: center;">
+                        <p style="margin: 3px 0;">Malang, _____, _____, 20 ___</p>
+                    </td>
+                    <td style="width: 50%; text-align: center;">
+                        <p style="margin: 3px 0;">Mengetahui,</p>
+                    </td>
                 </tr>
                 <tr>
-                    <td class="col-label">Biaya Admin</td>
-                    <td class="col-sep">:</td>
-                    <td style="color: red; border-bottom: 1px solid #000;">- Rp </td>
-                </tr>
-                <tr><td colspan="3" style="height: 10px;"></td></tr>
-                
-                <tr>
-                    <td class="col-label" style="font-weight: bold;">Uang yang Diterima</td>
-                    <td class="col-sep">:</td>
-                    <td style="border-bottom: 2px solid #000; font-weight: bold; font-size: 1.1em;">Rp </td>
+                    <td class="sig-spacer-small"></td>
+                    <td class="sig-spacer-small"></td>
                 </tr>
                 <tr>
-                    <td class="col-label">Cicilan per Bulan</td>
-                    <td class="col-sep">:</td>
-                    <td style="border-bottom: 1px solid #000; font-weight: bold; font-size: 1.1em;">Rp </td>
+                    <td style="text-align: center;">
+                        <p style="margin: 0;">(Peminjam)</p>
+                    </td>
+                    <td style="text-align: center;">
+                        <p style="margin: 0;">(Kepala Departemen)</p>
+                    </td>
                 </tr>
             </table>
         </div>
-
-        <p>Selanjutnya saya menyatakan <strong>BERSEDIA</strong> untuk:</p>
-        <ol style="margin-top: 5px; padding-left: 25px;">
-            <li>Bersedia dikurangi/dipotong sebagian dari gaji untuk membayar angsuran setiap bulannya sesuai jangka waktu yang disetujui. </li>
-            <li>Bersedia dipotong dari gaji untuk membayar seluruh sisa pinjaman bila status keanggotaanya sudah tidak aktif lagi. </li>
-            <li>Menerima jumlah pinjaman yang disetujui oleh Bendahara Koperasi.</li>
-        </ol>
     </div>
 
-    <table class="sig-table">
-        <tr>
-            <td style="width: 33%;"></td>
-            <td style="width: 33%;"></td>
-            <td style="width: 33%; padding-bottom: 5px;">Malang, ........................ 20...</td>
-        </tr>
-        <tr>
-            <td>Disetujui Oleh,</td>
-            <td>Mengetahui,</td>
-            <td>Diterima Oleh,</td>
-        </tr>
-        <tr>
-            <td class="sig-spacer"></td>
-            <td class="sig-spacer"></td>
-            <td class="sig-spacer"></td>
-        </tr>
-        <tr>
-            <td>
-                <span class="sig-name">Bendahara / Admin</span>
-            </td>
-            <td>
-                <span class="sig-name">Kepala Departemen</span>
-            </td>
-            <td>
-                <span class="sig-name">Peminjam</span>
-            </td>
-        </tr>
-    </table>
+    <!-- ==================== DIVIDER ==================== -->
+    <div class="section-divider" style="margin-top: 60px;"></div>
+
+    <!-- ==================== SECTION 2: FORMULIR PERSETUJUAN PINJAMAN ==================== -->
+    <div class="section-persetujuan">
+        <div class="header-persetujuan">
+            <div class="title-box">FORMULIR PERSETUJUAN PINJAMAN</div>
+        </div>
+
+        <table class="persetujuan-table">
+            <tr>
+                <td class="persetujuan-label">Nilai / Jumlah Pinjaman</td>
+                <td class="persetujuan-sep">: Rp.</td>
+                <td class="persetujuan-value"></td>
+            </tr>
+            <tr>
+                <td class="persetujuan-label">Bunga ( 1% x 10 bulan )</td>
+                <td class="persetujuan-sep">: Rp.</td>
+                <td class="persetujuan-value"></td>
+            </tr>
+            <tr>
+                <td class="persetujuan-label">Administrasi ( 1% )</td>
+                <td class="persetujuan-sep">: Rp.</td>
+                <td class="persetujuan-value"></td>
+                <!-- <td style="width: 30px; text-align: center;">(-)</td> -->
+            </tr>
+            <tr>
+                <td class="persetujuan-label"><strong>JUMLAH YANG DISERAHTERIMAKAN</strong></td>
+                <td class="persetujuan-sep">: Rp.</td>
+                <td class="persetujuan-value"></td>
+            </tr>
+        </table>
+
+        <table class="persetujuan-table" style="margin-top: 5px;">
+            <tr>
+                <td class="persetujuan-label">ANGSURAN TIAP BULAN ( 10 X )</td>
+                <td class="persetujuan-sep">: Rp.</td>
+                <td class="persetujuan-value"></td>
+            </tr>
+        </table>
+
+        <table class="sig-area" style="margin-top: 30px;">
+            <tr>
+                <td style="width: 50%; text-align: center;">
+                    <p style="margin: 3px 0;">Disetujui Oleh,</p>
+                </td>
+                <td style="width: 50%; text-align: center;">
+                    <p style="margin: 3px 0;">Diterima Oleh,</p>
+                </td>
+            </tr>
+            <tr>
+                <td></td>
+                <td style="text-align: center;">
+                    <p style="margin: 3px 0;">Tgl _____, _____, 20 ___</p>
+                </td>
+            </tr>
+            <tr>
+                <td class="sig-spacer-small"></td>
+                <td class="sig-spacer-small"></td>
+            </tr>
+            <tr>
+                <td style="text-align: center;">
+                    <span class="sig-name-line">(Bendahara / Admin Koperasi)</span>
+                </td>
+                <td style="text-align: center;">
+                    <span class="sig-name-line">(Peminjam)</span>
+                </td>
+            </tr>
+        </table>
+    </div>
 
 </body>
 </html>
