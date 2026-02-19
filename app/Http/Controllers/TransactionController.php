@@ -319,104 +319,147 @@ class TransactionController extends Controller
                 $member = Member::find($memberId);
                 if (!$member) continue;
 
-                // 1. Cek Duplicate
-                // Mencegah input ganda untuk member yang sama di bulan yang sama (khusus potong gaji)
-                $alreadyExists = Transaction::where('member_id', $member->id)
-                    ->whereYear('transaction_date', $dateObj->year)
-                    ->whereMonth('transaction_date', $dateObj->month)
-                    ->where('payment_method', 'payroll_deduction')
-                    ->exists();
-
-                if ($alreadyExists) {
-                    $results['duplicate']++;
-                    continue; 
-                }
-
                 // Ambil nilai input (default 0 jika kosong)
                 $potKop = (float) ($data['pot_kop'] ?? 0);
                 $iurKop = (float) ($data['iur_kop'] ?? 0);
                 $iurTunai = (float) ($data['iur_tunai'] ?? 0);
                 $notes = $data['notes'] ?? '';
-                
-                // [MODIFIKASI] Hapus pengecekan total <= 0
-                // Agar data 0 tetap diproses dan masuk laporan
-                /* $totalAmount = $potKop + $iurKop + $iurTunai;
-                if ($totalAmount <= 0) {
-                    $results['skipped']++;
-                    continue;
-                }
-                */
+
+                // 1. Cari transaksi existing untuk bulan ini
+                $existingIurKop = Transaction::where('member_id', $member->id)
+                    ->whereYear('transaction_date', $dateObj->year)
+                    ->whereMonth('transaction_date', $dateObj->month)
+                    ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                    ->whereIn('payment_method', ['payroll_deduction', 'deduction'])
+                    ->first();
+
+                $existingIurTunai = Transaction::where('member_id', $member->id)
+                    ->whereYear('transaction_date', $dateObj->year)
+                    ->whereMonth('transaction_date', $dateObj->month)
+                    ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                    ->where('payment_method', 'cash')
+                    ->first();
+
+                $existingPotKop = Transaction::where('member_id', $member->id)
+                    ->whereYear('transaction_date', $dateObj->year)
+                    ->whereMonth('transaction_date', $dateObj->month)
+                    ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
+                    ->whereIn('payment_method', ['payroll_deduction', 'deduction'])
+                    ->first();
 
                 // 2. Proses Iuran Koperasi (Simpanan Wajib - Potong Gaji)
-                // [MODIFIKASI] Gunakan >= 0 agar nilai 0 tetap dibuatkan record transaksinya
                 if ($iurKop >= 0) {
-                    // Hanya update saldo member jika ada uangnya (> 0)
-                    if ($iurKop > 0) {
-                        $member->increment('savings_balance', $iurKop);
+                    if ($existingIurKop) {
+                        // UPDATE: hitung selisih saldo
+                        $diff = $iurKop - $existingIurKop->amount_saving;
+                        if ($diff != 0) {
+                            $member->increment('savings_balance', $diff);
+                            $existingIurKop->update([
+                                'amount_saving' => $iurKop,
+                                'total_amount' => $iurKop,
+                                'payment_method' => 'payroll_deduction',
+                                'notes' => $notes ?: $existingIurKop->notes,
+                            ]);
+                        }
+                    } else {
+                        // CREATE: transaksi baru
+                        if ($iurKop > 0) {
+                            $member->increment('savings_balance', $iurKop);
+                        }
+                        Transaction::create([
+                            'member_id' => $member->id,
+                            'loan_id' => null,
+                            'transaction_date' => $transactionDate,
+                            'type' => Transaction::TYPE_SAVING_DEPOSIT,
+                            'amount_saving' => $iurKop,
+                            'amount_principal' => 0,
+                            'amount_interest' => 0,
+                            'total_amount' => $iurKop,
+                            'payment_method' => 'payroll_deduction',
+                            'notes' => $notes ?: ($iurKop == 0 ? 'Tidak ada potongan' : 'Iuran simpanan - potong gaji'),
+                        ]);
                     }
-
-                    Transaction::create([
-                        'member_id' => $member->id,
-                        'loan_id' => null, // Iuran tidak terikat loan
-                        'transaction_date' => $transactionDate,
-                        'type' => Transaction::TYPE_SAVING_DEPOSIT,
-                        'amount_saving' => $iurKop,
-                        'amount_principal' => 0,
-                        'amount_interest' => 0,
-                        'total_amount' => $iurKop,
-                        'payment_method' => 'payroll_deduction',
-                        'notes' => $notes ?: ($iurKop == 0 ? 'Tidak ada potongan' : 'Iuran simpanan - potong gaji'),
-                    ]);
-
                     $results['total_iur'] += $iurKop;
                 }
 
                 // 3. Proses Iuran Tunai (Bayar Cash)
-                // Tetap gunakan > 0 karena kalau cash 0 berarti memang tidak ada transaksi cash
                 if ($iurTunai > 0) {
-                    $member->increment('savings_balance', $iurTunai);
-                    Transaction::create([
-                        'member_id' => $member->id,
-                        'loan_id' => null,
-                        'transaction_date' => $transactionDate,
-                        'type' => Transaction::TYPE_SAVING_DEPOSIT,
-                        'amount_saving' => $iurTunai,
-                        'amount_principal' => 0,
-                        'amount_interest' => 0,
-                        'total_amount' => $iurTunai,
-                        'payment_method' => 'cash',
-                        'notes' => $notes ?: 'Iuran simpanan - tunai',
-                    ]);
+                    if ($existingIurTunai) {
+                        $diff = $iurTunai - $existingIurTunai->amount_saving;
+                        if ($diff != 0) {
+                            $member->increment('savings_balance', $diff);
+                            $existingIurTunai->update([
+                                'amount_saving' => $iurTunai,
+                                'total_amount' => $iurTunai,
+                                'payment_method' => 'cash',
+                                'notes' => $notes ?: $existingIurTunai->notes,
+                            ]);
+                        }
+                    } else {
+                        $member->increment('savings_balance', $iurTunai);
+                        Transaction::create([
+                            'member_id' => $member->id,
+                            'loan_id' => null,
+                            'transaction_date' => $transactionDate,
+                            'type' => Transaction::TYPE_SAVING_DEPOSIT,
+                            'amount_saving' => $iurTunai,
+                            'amount_principal' => 0,
+                            'amount_interest' => 0,
+                            'total_amount' => $iurTunai,
+                            'payment_method' => 'cash',
+                            'notes' => $notes ?: 'Iuran simpanan - tunai',
+                        ]);
+                    }
                     $results['total_iur_tunai'] += $iurTunai;
                 }
 
                 // 4. Proses Potongan Pinjaman (Cicilan)
-                // Tetap gunakan > 0 agar tidak membuat record pelunasan palsu
                 if ($potKop > 0) {
                     $loan = null;
                     if (!empty($data['loan_id'])) {
                         $loan = Loan::find($data['loan_id']);
                     } else {
-                        // Auto-detect pinjaman aktif jika ID tidak dikirim
                         $loan = $member->activeLoans()->first();
                     }
 
-                    if ($loan) {
-                        $loan->reduceRemainingPrincipal($potKop);
+                    if ($existingPotKop) {
+                        // UPDATE: hitung selisih principal
+                        $diff = $potKop - $existingPotKop->amount_principal;
+                        if ($diff != 0 && $loan) {
+                            // Kurangi sisa pokok sesuai selisih (bisa positif atau negatif)
+                            $loan->decrement('remaining_principal', $diff);
+                            $loan->fresh();
+                            if ($loan->remaining_principal <= 0 && $loan->status === 'active') {
+                                $loan->update(['status' => 'paid', 'remaining_principal' => 0]);
+                            } elseif ($loan->remaining_principal > 0 && $loan->status === 'paid') {
+                                $loan->update(['status' => 'active']);
+                            }
+                        }
+                        $existingPotKop->update([
+                            'amount_principal' => $potKop,
+                            'total_amount' => $potKop,
+                            'loan_id' => $loan?->id ?? $existingPotKop->loan_id,
+                            'payment_method' => 'payroll_deduction',
+                            'notes' => $notes ?: $existingPotKop->notes,
+                        ]);
+                    } else {
+                        // CREATE: transaksi cicilan baru (kasus pinjaman baru yang belum ada record)
+                        if ($loan) {
+                            $loan->reduceRemainingPrincipal($potKop);
+                        }
+                        Transaction::create([
+                            'member_id' => $member->id,
+                            'loan_id' => $loan?->id,
+                            'transaction_date' => $transactionDate,
+                            'type' => Transaction::TYPE_LOAN_REPAYMENT,
+                            'amount_saving' => 0,
+                            'amount_principal' => $potKop,
+                            'amount_interest' => 0,
+                            'total_amount' => $potKop,
+                            'payment_method' => 'payroll_deduction',
+                            'notes' => $notes ?: 'Cicilan pinjaman - potong gaji',
+                        ]);
                     }
-
-                    Transaction::create([
-                        'member_id' => $member->id,
-                        'loan_id' => $loan?->id,
-                        'transaction_date' => $transactionDate,
-                        'type' => Transaction::TYPE_LOAN_REPAYMENT,
-                        'amount_saving' => 0,
-                        'amount_principal' => $potKop,
-                        'amount_interest' => 0,
-                        'total_amount' => $potKop,
-                        'payment_method' => 'payroll_deduction',
-                        'notes' => $notes ?: 'Cicilan pinjaman - potong gaji',
-                    ]);
                     $results['total_pot'] += $potKop;
                 }
 

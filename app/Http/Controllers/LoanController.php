@@ -342,6 +342,7 @@ class LoanController extends Controller
                 'amount_principal' => $validated['amount_principal'],
                 'amount_interest' => $validated['amount_interest'],
                 'total_amount' => $validated['amount_principal'] + $validated['amount_interest'],
+                'payment_method' => 'cash',
                 'notes' => $validated['notes'] ?? 'Pembayaran manual',
             ]);
         });

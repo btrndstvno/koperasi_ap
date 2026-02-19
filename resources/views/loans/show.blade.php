@@ -262,11 +262,11 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-clock-history me-2"></i>Riwayat Pembayaran</span>
-        <!-- @if($loan->status === 'active' && Auth::user()->isAdmin())
+        @if($loan->status === 'active' && Auth::user()->isAdmin())
         <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#repayModal">
             <i class="bi bi-cash me-1"></i> Bayar Angsuran
         </button>
-        @endif -->
+        @endif
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -391,7 +391,9 @@
 </div>
 @endif
 
-<!-- Modal Bayar
+
+
+<!-- Modal Bayar Angsuran -->
 @if($loan->status === 'active')
 <div class="modal fade" id="repayModal" tabindex="-1">
     <div class="modal-dialog">
@@ -403,18 +405,27 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    @if($loan->isUpfrontInterest())
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-2"></i>
+                        <strong>Sistem Bunga Potong di Awal</strong><br>
+                        <small>Bunga sudah lunas. Cicilan hanya berupa pokok pinjaman.</small>
+                    </div>
+                    @endif
                     <div class="alert alert-info">
                         <small>
-                            Sisa Pokok: <strong>Rp {{ number_format($loan->remaining_principal, 0, ',', '.') }}</strong>
+                            Sisa Pokok: <strong>Rp {{ number_format($loan->remaining_principal, 0, ',', '.') }}</strong><br>
+                            Cicilan Pokok/Bulan: <strong>Rp {{ number_format($loan->monthly_installment > 0 ? $loan->monthly_installment : $loan->monthly_principal, 0, ',', '.') }}</strong>
                         </small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label form-label-required">Pokok</label>
                         <div class="input-group">
                             <span class="input-group-text">Rp</span>
-                            <input type="number" name="amount_principal" class="form-control" required min="0" max="{{ $loan->remaining_principal }}" value="{{ round($loan->monthly_principal) }}">
+                            <input type="number" name="amount_principal" class="form-control" required min="0" max="{{ $loan->remaining_principal }}" value="{{ $loan->monthly_installment > 0 ? round($loan->monthly_installment) : round($loan->monthly_principal) }}">
                         </div>
                     </div>
+                    @if(!$loan->isUpfrontInterest())
                     <div class="mb-3">
                         <label class="form-label form-label-required">Bunga</label>
                         <div class="input-group">
@@ -422,6 +433,9 @@
                             <input type="number" name="amount_interest" class="form-control" required min="0" value="{{ round($loan->monthly_interest) }}">
                         </div>
                     </div>
+                    @else
+                    <input type="hidden" name="amount_interest" value="0">
+                    @endif
                     <div class="mb-3">
                         <label class="form-label form-label-required">Tanggal</label>
                         <input type="date" name="transaction_date" class="form-control" required value="{{ date('Y-m-d') }}">
@@ -441,7 +455,7 @@
         </div>
     </div>
 </div>
-@endif -->
+@endif
 
 <!-- Modal Approve -->
 @if($loan->isPending())

@@ -365,17 +365,7 @@
                             <input type="number" name="amount_principal" class="form-control input-currency" required min="0" max="{{ $activeLoan->remaining_principal }}" value="{{ $activeLoan->monthly_installment > 0 ? round($activeLoan->monthly_installment) : round($activeLoan->monthly_principal) }}">
                         </div>
                     </div>
-                    @if(!$activeLoan->isUpfrontInterest())
-                    <div class="mb-3">
-                        <label class="form-label form-label-required">Bunga</label>
-                        <div class="input-group">
-                            <span class="input-group-text">Rp</span>
-                            <input type="number" name="amount_interest" class="form-control input-currency" required min="0" value="{{ round($activeLoan->monthly_interest) }}">
-                        </div>
-                    </div>
-                    @else
                     <input type="hidden" name="amount_interest" value="0">
-                    @endif
                     <div class="mb-3">
                         <label class="form-label form-label-required">Tanggal</label>
                         <input type="date" name="transaction_date" class="form-control" required value="{{ date('Y-m-d') }}">
