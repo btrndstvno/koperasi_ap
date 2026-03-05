@@ -9,11 +9,14 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class PendingLoansExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting
+class PendingLoansExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting, WithEvents
 {
     public function collection()
     {
@@ -75,20 +78,20 @@ class PendingLoansExport implements FromCollection, WithHeadings, WithMapping, W
     public function columnWidths(): array
     {
         return [
-            'A' => 5,   // NO
-            'B' => 12,  // NIK
-            'C' => 25,  // NAMA
-            'D' => 12,  // DEPT
-            'E' => 10,  // GROUP
-            'F' => 15,  // TGL PENGAJUAN
-            'G' => 18,  // JUMLAH PINJAMAN
-            'H' => 15,  // DURASI
-            'I' => 15,  // CICILAN
-            'J' => 10,  // BUNGA
-            'K' => 15,  // TOTAL BUNGA
-            'L' => 15,  // BIAYA ADMIN
-            'M' => 18,  // DITERIMA
-            'N' => 20,  // STATUS
+            'A' => 4,   // NO
+            'B' => 10,  // NIK
+            'C' => 18,  // NAMA
+            'D' => 10,  // DEPT
+            'E' => 8,   // GROUP
+            'F' => 11,  // TGL PENGAJUAN
+            'G' => 14,  // JUMLAH PINJAMAN
+            'H' => 8,   // DURASI
+            'I' => 12,  // CICILAN
+            'J' => 7,   // BUNGA
+            'K' => 12,  // TOTAL BUNGA
+            'L' => 12,  // BIAYA ADMIN
+            'M' => 14,  // DITERIMA
+            'N' => 14,  // STATUS
         ];
     }
 
@@ -103,13 +106,33 @@ class PendingLoansExport implements FromCollection, WithHeadings, WithMapping, W
         ];
     }
 
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+                $sheet->getPageSetup()->setFitToWidth(1);
+                $sheet->getPageSetup()->setFitToHeight(0);
+                $sheet->getPageMargins()->setLeft(0.2);
+                $sheet->getPageMargins()->setRight(0.2);
+                $sheet->getPageMargins()->setTop(0.3);
+                $sheet->getPageMargins()->setBottom(0.3);
+                $sheet->getDefaultRowDimension()->setRowHeight(14);
+            },
+        ];
+    }
+
     public function styles(Worksheet $sheet): array
     {
+        $sheet->getParent()->getDefaultStyle()->getFont()->setSize(12);
+
         return [
             // Header row style
             1 => [
                 'font' => [
                     'bold' => true,
+                    'size' => 8,
                     'color' => ['rgb' => 'FFFFFF'],
                 ],
                 'fill' => [

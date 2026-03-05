@@ -8,23 +8,30 @@
 @section('content')
 <style>
     @media print {
-        @page { size: landscape; margin: 10mm; }
-        body { background: white; font-family: Arial, sans-serif; font-size: 11px; }
+        @page { size: landscape; margin: 5mm 5mm; }
+        body { background: white; font-family: Arial, sans-serif; font-size: 14px; line-height: 1.2; }
         .no-print { display: none !important; }
-        .card { border: none !important; box-shadow: none !important; }
+        .card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
         .card-header { display: none !important; }
+        .card-body { padding: 0 !important; }
         .tab-content { display: block !important; }
-        .tab-pane { display: block !important; opacity: 1 !important; visibility: visible !important; margin-bottom: 20px; page-break-inside: avoid; }
+        .tab-pane { display: block !important; opacity: 1 !important; visibility: visible !important; margin-bottom: 8px; page-break-inside: avoid; }
         .tab-pane:not(.active) { display: block !important; }
-        .table { width: 100% !important; border-collapse: collapse !important; border: 1px solid #000 !important; }
-        .table th, .table td { border: 1px solid #000 !important; padding: 4px !important; color: #000 !important; }
+        .table { width: 100% !important; border-collapse: collapse !important; border: 1px solid #000 !important; font-size: 14px !important; }
+        .table th, .table td { border: 1px solid #000 !important; padding: 3px 5px !important; color: #000 !important; font-size: 14px !important; line-height: 1.3 !important; }
+        .table th { padding: 2px 4px !important; }
         .badge { border: 1px solid #000; color: #000 !important; background: none !important; }
         .text-danger { color: #000 !important; }
         .text-success { color: #000 !important; }
         .text-primary { color: #000 !important; }
+        .small, small, code { font-size: 14px !important; }
+        .grand-total-summary { font-size: 14px !important; }
+        .grand-total-summary .h4, .grand-total-summary .h5 { font-size: 16px !important; }
+        .grand-total-summary hr { margin: 3px 0 !important; }
+        .grand-total-summary .p-3 { padding: 5px !important; }
         
         /* Show tab title in print */
-        .print-tab-title { display: block !important; font-size: 14px; font-weight: bold; margin-bottom: 5px; border-bottom: 1px solid #000; padding-bottom: 2px; }
+        .print-tab-title { display: block !important; font-size: 16px; font-weight: bold; margin-bottom: 2px; border-bottom: 1px solid #000; padding-bottom: 1px; }
     }
     .print-tab-title { display: none; }
     .table-sm td, .table-sm th { font-size: 0.85rem; vertical-align: middle; }
@@ -74,9 +81,8 @@
 </div>
 
 <!-- Report Title buat Print -->
-<div class="d-none d-print-block text-center mb-4">
-    <h3>KOPERASI ARTHA PRIMA</h3>
-    <h4>LAPORAN TRANSAKSI BULAN {{ strtoupper(\Carbon\Carbon::create()->month($month)->translatedFormat('F')) }} {{ $year }}</h4>
+<div class="d-none d-print-block text-center" style="margin-bottom: 4px;">
+    <strong style="font-size: 18px;">Laporan Koperasi Adiputro Bulan {{ \Carbon\Carbon::create()->month($month)->translatedFormat('F') }} {{ $year }}</strong>
 </div>
 
 <div class="card">

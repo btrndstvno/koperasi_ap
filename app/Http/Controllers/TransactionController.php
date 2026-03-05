@@ -80,16 +80,23 @@ class TransactionController extends Controller
         ->map(function ($member) use ($targetDate, $prevMonthYear, $prevMonthMonth, $currentMonth) {
             
             // A. Active Loan Logic (In-Memory Filtering)
-            $activeLoanInPeriod = $member->loans->first(function($loan) use ($targetDate) {
-                 $baseDate = $loan->approved_date 
-                    ? \Carbon\Carbon::parse($loan->approved_date) 
-                    : \Carbon\Carbon::parse($loan->created_at);
-                 
-                 $start = $baseDate->copy()->addMonth()->startOfMonth();
-                 $end = $start->copy()->addMonths($loan->duration - 1)->endOfMonth();
-                 
-                 return $targetDate->between($start, $end);
-            });
+            // Prioritaskan loan yang masih active, lalu sortByDesc created_at
+            $activeLoanInPeriod = $member->loans
+                ->filter(function($loan) use ($targetDate) {
+                    if ($loan->status !== 'active') {
+                        return false;
+                    }
+                    $baseDate = $loan->approved_date 
+                        ? \Carbon\Carbon::parse($loan->approved_date) 
+                        : \Carbon\Carbon::parse($loan->created_at);
+                    
+                    $start = $baseDate->copy()->addMonth()->startOfMonth();
+                    $end = $start->copy()->addMonths($loan->duration - 1)->endOfMonth();
+                    
+                    return $targetDate->between($start, $end);
+                })
+                ->sortByDesc('created_at')
+                ->first();
 
             $pot_kop = 0;
             $sisa_pinjaman = 0;

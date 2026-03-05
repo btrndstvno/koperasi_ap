@@ -392,6 +392,7 @@ class ReportController extends Controller
                 'sisa_tenor' => $sisaTenorHistoris,
                 'saldo_kop' => $saldoHistoris,
                 'member_status' => $member->employee_status === 'monthly' ? 'Bulanan' : 'Mingguan',
+
             ];
         })->sortBy('nik_numeric');
 

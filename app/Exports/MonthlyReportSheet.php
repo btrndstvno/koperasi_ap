@@ -8,12 +8,15 @@ use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, WithStyles, WithColumnWidths, WithColumnFormatting
+class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, WithStyles, WithColumnWidths, WithColumnFormatting, WithEvents
 {
     protected $tag;
     protected $data;
@@ -94,17 +97,18 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
     public function columnWidths(): array
     {
         return [
-            'A' => 5,   // NO
-            'B' => 12,  // NIK
-            'C' => 30,  // NAMA
-            'D' => 15,  // DEPT
-            'E' => 15,  // POT KOP
-            'F' => 15,  // IUR KOP
-            'G' => 15,  // IUR TUNAI
-            'H' => 15,  // JUMLAH
-            'I' => 18,  // SISA PINJAMAN
-            'J' => 18,  // SALDO KOP
-            'K' => 10,  // KET
+            'A' => 4,   // NO
+            'B' => 10,  // NIK
+            'C' => 22,  // NAMA
+            'D' => 10,  // DEPT
+            'E' => 12,  // POT KOP
+            'F' => 12,  // IUR KOP
+            'G' => 12,  // IUR TUNAI
+            'H' => 12,  // JUMLAH
+            'I' => 14,  // SISA PINJAMAN
+            'J' => 14,  // SALDO KOP
+            'K' => 8,   // STATUS
+            'L' => 8,   // KET
         ];
     }
 
@@ -120,13 +124,32 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
         ];
     }
 
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+                $sheet->getPageSetup()->setFitToWidth(1);
+                $sheet->getPageSetup()->setFitToHeight(0);
+                $sheet->getPageMargins()->setLeft(0.2);
+                $sheet->getPageMargins()->setRight(0.2);
+                $sheet->getPageMargins()->setTop(0.3);
+                $sheet->getPageMargins()->setBottom(0.3);
+                $sheet->getDefaultRowDimension()->setRowHeight(14);
+            },
+        ];
+    }
+
     public function styles(Worksheet $sheet): array
     {
         $lastRow = count($this->data->members) + 2; // +1 heading +1 subtotal
 
+        $sheet->getParent()->getDefaultStyle()->getFont()->setSize(12);
+
         $styles = [
             1 => [
-                'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+                'font' => ['bold' => true, 'size' => 8, 'color' => ['rgb' => 'FFFFFF']],
                 'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => '2C3E50']],
                 'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER, 'vertical' => Alignment::VERTICAL_CENTER],
             ],

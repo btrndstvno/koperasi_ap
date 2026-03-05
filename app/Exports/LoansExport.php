@@ -9,11 +9,14 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class LoansExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting
+class LoansExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting, WithEvents
 {
     protected ?string $status;
 
@@ -90,22 +93,22 @@ class LoansExport implements FromCollection, WithHeadings, WithMapping, WithStyl
     public function columnWidths(): array
     {
         return [
-            'A' => 5,   // NO
-            'B' => 12,  // NIK
-            'C' => 25,  // NAMA
-            'D' => 15,  // DEPT
-            'E' => 12,  // GROUP
-            'F' => 15,  // TGL PENGAJUAN
-            'G' => 15,  // TGL DISETUJUI
-            'H' => 18,  // JUMLAH PINJAMAN
-            'I' => 15,  // DURASI
-            'J' => 15,  // CICILAN
-            'K' => 10,  // BUNGA
-            'L' => 15,  // TOTAL BUNGA
-            'M' => 15,  // BIAYA ADMIN
-            'N' => 18,  // DITERIMA
-            'O' => 18,  // SISA POKOK
-            'P' => 20,  // STATUS
+            'A' => 4,   // NO
+            'B' => 10,  // NIK
+            'C' => 18,  // NAMA
+            'D' => 10,  // DEPT
+            'E' => 8,   // GROUP
+            'F' => 11,  // TGL PENGAJUAN
+            'G' => 11,  // TGL DISETUJUI
+            'H' => 14,  // JUMLAH PINJAMAN
+            'I' => 8,   // DURASI
+            'J' => 12,  // CICILAN
+            'K' => 7,   // BUNGA
+            'L' => 12,  // TOTAL BUNGA
+            'M' => 12,  // BIAYA ADMIN
+            'N' => 14,  // DITERIMA
+            'O' => 14,  // SISA POKOK
+            'P' => 14,  // STATUS
         ];
     }
 
@@ -121,18 +124,38 @@ class LoansExport implements FromCollection, WithHeadings, WithMapping, WithStyl
         ];
     }
 
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+                $sheet->getPageSetup()->setFitToWidth(1);
+                $sheet->getPageSetup()->setFitToHeight(0);
+                $sheet->getPageMargins()->setLeft(0.2);
+                $sheet->getPageMargins()->setRight(0.2);
+                $sheet->getPageMargins()->setTop(0.3);
+                $sheet->getPageMargins()->setBottom(0.3);
+                $sheet->getDefaultRowDimension()->setRowHeight(14);
+            },
+        ];
+    }
+
     public function styles(Worksheet $sheet): array
     {
+        $sheet->getParent()->getDefaultStyle()->getFont()->setSize(12);
+
         return [
             // Header row style
             1 => [
                 'font' => [
                     'bold' => true,
+                    'size' => 8,
                     'color' => ['rgb' => 'FFFFFF'],
                 ],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => '0D6EFD'], // Blue for loans
+                    'startColor' => ['rgb' => '0D6EFD'],
                 ],
                 'alignment' => [
                     'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,

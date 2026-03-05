@@ -10,10 +10,13 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class WithdrawalsExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting
+class WithdrawalsExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting, WithEvents
 {
     protected ?string $status;
 
@@ -71,16 +74,16 @@ class WithdrawalsExport implements FromCollection, WithHeadings, WithMapping, Wi
     public function columnWidths(): array
     {
         return [
-            'A' => 5,   // No
-            'B' => 12,  // NIK
-            'C' => 28,  // Nama
-            'D' => 15,  // Dept
-            'E' => 12,  // Kategori
-            'F' => 20,  // Nominal
-            'G' => 16,  // Tgl Pengajuan
-            'H' => 16,  // Tgl Disetujui
-            'I' => 14,  // Status
-            'J' => 25,  // Catatan
+            'A' => 4,   // No
+            'B' => 10,  // NIK
+            'C' => 20,  // Nama
+            'D' => 10,  // Dept
+            'E' => 10,  // Kategori
+            'F' => 14,  // Nominal
+            'G' => 11,  // Tgl Pengajuan
+            'H' => 11,  // Tgl Disetujui
+            'I' => 10,  // Status
+            'J' => 18,  // Catatan
         ];
     }
 
@@ -91,12 +94,32 @@ class WithdrawalsExport implements FromCollection, WithHeadings, WithMapping, Wi
         ];
     }
 
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+                $sheet->getPageSetup()->setFitToWidth(1);
+                $sheet->getPageSetup()->setFitToHeight(0);
+                $sheet->getPageMargins()->setLeft(0.2);
+                $sheet->getPageMargins()->setRight(0.2);
+                $sheet->getPageMargins()->setTop(0.3);
+                $sheet->getPageMargins()->setBottom(0.3);
+                $sheet->getDefaultRowDimension()->setRowHeight(14);
+            },
+        ];
+    }
+
     public function styles(Worksheet $sheet): array
     {
+        $sheet->getParent()->getDefaultStyle()->getFont()->setSize(12);
+
         return [
             1 => [
                 'font' => [
                     'bold' => true,
+                    'size' => 8,
                     'color' => ['rgb' => 'FFFFFF'],
                 ],
                 'fill' => [

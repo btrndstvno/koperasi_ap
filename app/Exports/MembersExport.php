@@ -9,11 +9,14 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use Maatwebsite\Excel\Concerns\WithColumnFormatting;
+use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use PhpOffice\PhpSpreadsheet\Worksheet\PageSetup;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class MembersExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting
+class MembersExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths, WithTitle, WithColumnFormatting, WithEvents
 {
     public function collection()
     {
@@ -58,15 +61,15 @@ class MembersExport implements FromCollection, WithHeadings, WithMapping, WithSt
     public function columnWidths(): array
     {
         return [
-            'A' => 15,  // NIK
-            'B' => 30,  // NAMA
-            'C' => 15,  // DEPT
-            'D' => 12,  // STATUS
-            'E' => 18,  // SALDO_SIMPANAN
-            'F' => 18,  // SISA_HUTANG
-            'G' => 15,  // IUR_KOP
-            'H' => 15,  // POT_KOP
-            'I' => 15,  // BUNGA
+            'A' => 11,  // NIK
+            'B' => 22,  // NAMA
+            'C' => 10,  // DEPT
+            'D' => 10,  // STATUS
+            'E' => 14,  // SALDO_SIMPANAN
+            'F' => 14,  // SISA_HUTANG
+            'G' => 11,  // IUR_KOP
+            'H' => 11,  // POT_KOP
+            'I' => 11,  // BUNGA
         ];
     }
 
@@ -81,13 +84,33 @@ class MembersExport implements FromCollection, WithHeadings, WithMapping, WithSt
         ];
     }
 
+    public function registerEvents(): array
+    {
+        return [
+            AfterSheet::class => function (AfterSheet $event) {
+                $sheet = $event->sheet->getDelegate();
+                $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE);
+                $sheet->getPageSetup()->setFitToWidth(1);
+                $sheet->getPageSetup()->setFitToHeight(0);
+                $sheet->getPageMargins()->setLeft(0.2);
+                $sheet->getPageMargins()->setRight(0.2);
+                $sheet->getPageMargins()->setTop(0.3);
+                $sheet->getPageMargins()->setBottom(0.3);
+                $sheet->getDefaultRowDimension()->setRowHeight(14);
+            },
+        ];
+    }
+
     public function styles(Worksheet $sheet): array
     {
+        $sheet->getParent()->getDefaultStyle()->getFont()->setSize(12);
+
         return [
             // Header row style
             1 => [
                 'font' => [
                     'bold' => true,
+                    'size' => 8,
                     'color' => ['rgb' => 'FFFFFF'],
                 ],
                 'fill' => [
