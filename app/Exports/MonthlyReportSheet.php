@@ -49,7 +49,7 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
                 number_format($member->sisa_pinjaman, 0, ',', '.') . "\n" . ($member->sisa_tenor > 0 ? "({$member->sisa_tenor}x)" : ''),
                 $member->saldo_kop,
                 $member->member_status ?? '',
-                ''
+                $member->notes ?? ''
             ]);
         }
 
@@ -101,14 +101,14 @@ class MonthlyReportSheet implements FromCollection, WithHeadings, WithTitle, Wit
             'B' => 10,  // NIK
             'C' => 22,  // NAMA
             'D' => 10,  // DEPT
-            'E' => 12,  // POT KOP
-            'F' => 12,  // IUR KOP
-            'G' => 12,  // IUR TUNAI
-            'H' => 12,  // JUMLAH
-            'I' => 14,  // SISA PINJAMAN
-            'J' => 14,  // SALDO KOP
-            'K' => 8,   // STATUS
-            'L' => 8,   // KET
+            'E' => 16,  // POT KOP
+            'F' => 16,  // IUR KOP
+            'G' => 14,  // IUR TUNAI
+            'H' => 18,  // JUMLAH
+            'I' => 18,  // SISA PINJAMAN
+            'J' => 18,  // SALDO KOP
+            'K' => 10,  // STATUS
+            'L' => 16,  // KET
         ];
     }
 

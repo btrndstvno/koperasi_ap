@@ -153,7 +153,7 @@
                                     <td class="text-end text-success fw-bold">
                                         {{ $member->saldo_kop > 0 ? number_format($member->saldo_kop, 0, ',', '.') : '-' }}
                                     </td>
-                                    <td class="small text-muted"></td>
+                                    <td class="small text-muted">{{ $member->notes ?? '' }}</td>
                                 </tr>
                                 @empty
                                 <tr>
@@ -199,15 +199,12 @@
                     <small class="d-block text-muted">GRAND TOTAL</small>
                     <span class="text-dark h4">Rp {{ number_format($grandTotal->total, 0, ',', '.') }}</span>
                 </div>
-            </div>
-            <hr>
-            <div class="row text-center fw-bold">
                 <div class="col">
-                    <small class="d-block text-muted">TOTAL SISA PINJAMAN (Historis)</small>
+                    <small class="d-block text-muted">TOTAL SISA PINJAMAN</small>
                     <span class="text-danger h5">Rp {{ number_format($grandTotal->sisa_pinjaman, 0, ',', '.') }}</span>
                 </div>
                 <div class="col">
-                    <small class="d-block text-muted">TOTAL SALDO SIMPANAN (Historis)</small>
+                    <small class="d-block text-muted">TOTAL SALDO SIMPANAN</small>
                     <span class="text-success h5">Rp {{ number_format($grandTotal->saldo_kop, 0, ',', '.') }}</span>
                 </div>
             </div>

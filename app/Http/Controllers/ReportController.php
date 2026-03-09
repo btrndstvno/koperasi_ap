@@ -323,6 +323,19 @@ class ReportController extends Controller
                 ->filter(fn($t) => in_array($t->payment_method, ['cash', 'transfer']))
                 ->sum('total_amount');
 
+            // KETERANGAN = notes dari transaksi bulan ini (prioritas: pot_kop > iur_kop > iur_tunai)
+            $notesFromPot = $monthlyTransactions
+                ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
+                ->whereNotNull('notes')
+                ->where('notes', '!=', '')
+                ->first();
+            $notesFromIur = $monthlyTransactions
+                ->where('type', Transaction::TYPE_SAVING_DEPOSIT)
+                ->whereNotNull('notes')
+                ->where('notes', '!=', '')
+                ->first();
+            $memberNotes = $notesFromPot->notes ?? ($notesFromIur->notes ?? '');
+
             // ========== SALDO HISTORIS (Snapshot s/d akhir bulan) ==========
             // Sum semua deposit (Simpanan, Bunga Simpanan, SHU) - sum semua withdraw sampai akhir bulan
             $depositTypes = [
@@ -392,7 +405,7 @@ class ReportController extends Controller
                 'sisa_tenor' => $sisaTenorHistoris,
                 'saldo_kop' => $saldoHistoris,
                 'member_status' => $member->employee_status === 'monthly' ? 'Bulanan' : 'Mingguan',
-
+                'notes' => $memberNotes,
             ];
         })->sortBy('nik_numeric');
 

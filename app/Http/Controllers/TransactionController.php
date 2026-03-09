@@ -13,6 +13,37 @@ use Illuminate\Support\Facades\Log;
 class TransactionController extends Controller
 {
     /**
+     * Filter out old system-generated default notes (treat as empty).
+     */
+    private function filterDefaultNotes(?string $notes): string
+    {
+        $defaults = [
+            'Cicilan pinjaman - potong gaji',
+            'Iuran simpanan - potong gaji',
+            'Iuran simpanan - tunai',
+            'Tidak ada potongan',
+        ];
+        if ($notes && in_array($notes, $defaults)) {
+            return '';
+        }
+        return $notes ?? '';
+    }
+
+    /**
+     * Check if a given date falls in the first installment month of a loan.
+     * First installment = month after approved_date.
+     */
+    private function isFirstInstallmentMonth($loan, $date): bool
+    {
+        if (!$loan) return false;
+        $baseDate = $loan->approved_date
+            ? Carbon::parse($loan->approved_date)
+            : Carbon::parse($loan->created_at);
+        $firstPaymentMonth = $baseDate->copy()->addMonth()->startOfMonth();
+        return Carbon::parse($date)->startOfMonth()->eq($firstPaymentMonth);
+    }
+
+    /**
      * Show saving/payment history for authenticated member.
      */
     public function mySavings()
@@ -201,7 +232,14 @@ class TransactionController extends Controller
             $final_iur_kop = $existingIurKop ? $existingIurKop->amount_saving : $iur_kop_default;
             $final_iur_tunai = $existingIurTunai ? $existingIurTunai->amount_saving : 0;
             
-            $notes = $existingPotKop?->notes ?? ($existingIurKop?->notes ?? ($existingIurTunai?->notes ?? ''));
+            // Auto-detect "Pinjaman Pertama" - bulan pertama cicilan (bulan setelah approved_date)
+            $autoNotes = '';
+            if ($activeLoanInPeriod && $this->isFirstInstallmentMonth($activeLoanInPeriod, $targetDate)) {
+                $autoNotes = 'Pinjaman Pertama';
+            }
+
+            $rawNotes = $existingPotKop?->notes ?? ($existingIurKop?->notes ?? ($existingIurTunai?->notes ?? null));
+            $notes = $this->filterDefaultNotes($rawNotes) ?: $autoNotes;
             
             return (object) [
                 'id' => $member->id,
@@ -365,7 +403,7 @@ class TransactionController extends Controller
                                 'amount_saving' => $iurKop,
                                 'total_amount' => $iurKop,
                                 'payment_method' => 'payroll_deduction',
-                                'notes' => $notes ?: $existingIurKop->notes,
+                                'notes' => $notes ?: '',
                             ]);
                         }
                     } else {
@@ -383,7 +421,7 @@ class TransactionController extends Controller
                             'amount_interest' => 0,
                             'total_amount' => $iurKop,
                             'payment_method' => 'payroll_deduction',
-                            'notes' => $notes ?: ($iurKop == 0 ? 'Tidak ada potongan' : 'Iuran simpanan - potong gaji'),
+                            'notes' => $notes ?: '',
                         ]);
                     }
                     $results['total_iur'] += $iurKop;
@@ -399,7 +437,7 @@ class TransactionController extends Controller
                                 'amount_saving' => $iurTunai,
                                 'total_amount' => $iurTunai,
                                 'payment_method' => 'cash',
-                                'notes' => $notes ?: $existingIurTunai->notes,
+                                'notes' => $notes ?: '',
                             ]);
                         }
                     } else {
@@ -414,7 +452,7 @@ class TransactionController extends Controller
                             'amount_interest' => 0,
                             'total_amount' => $iurTunai,
                             'payment_method' => 'cash',
-                            'notes' => $notes ?: 'Iuran simpanan - tunai',
+                            'notes' => $notes ?: '',
                         ]);
                     }
                     $results['total_iur_tunai'] += $iurTunai;
@@ -447,12 +485,17 @@ class TransactionController extends Controller
                             'total_amount' => $potKop,
                             'loan_id' => $loan?->id ?? $existingPotKop->loan_id,
                             'payment_method' => 'payroll_deduction',
-                            'notes' => $notes ?: $existingPotKop->notes,
+                            'notes' => $notes ?: '',
                         ]);
                     } else {
                         // CREATE: transaksi cicilan baru (kasus pinjaman baru yang belum ada record)
+                        $isFirstInstallment = $this->isFirstInstallmentMonth($loan, $transactionDate);
                         if ($loan) {
                             $loan->reduceRemainingPrincipal($potKop);
+                        }
+                        $loanNotes = $notes;
+                        if (!$loanNotes && $isFirstInstallment) {
+                            $loanNotes = 'Pinjaman Pertama';
                         }
                         Transaction::create([
                             'member_id' => $member->id,
@@ -464,7 +507,7 @@ class TransactionController extends Controller
                             'amount_interest' => 0,
                             'total_amount' => $potKop,
                             'payment_method' => 'payroll_deduction',
-                            'notes' => $notes ?: 'Cicilan pinjaman - potong gaji',
+                            'notes' => $loanNotes ?: '',
                         ]);
                     }
                     $results['total_pot'] += $potKop;
@@ -613,7 +656,7 @@ class TransactionController extends Controller
                             'amount_saving' => $value,
                             'total_amount' => $value,
                             'payment_method' => $method,
-                            'notes' => $method === 'cash' ? 'Iuran simpanan - tunai' : 'Iuran simpanan - potong gaji',
+                            'notes' => '',
                         ]);
                     }
                 }
@@ -624,6 +667,9 @@ class TransactionController extends Controller
                 } else {
                     $loan = $trx ? $trx->loan : $member->activeLoans()->first();
                 }
+
+                // Auto-detect "Pinjaman Pertama" - bulan pertama cicilan
+                $isFirstInstallment = !$trx && $this->isFirstInstallmentMonth($loan, $date);
 
                 if ($loan) {
                     // Update Remaining Principal
@@ -655,7 +701,7 @@ class TransactionController extends Controller
                             'amount_principal' => $value,
                             'total_amount' => $value,
                             'payment_method' => $method,
-                            'notes' => 'Cicilan pinjaman - potong gaji',
+                            'notes' => $isFirstInstallment ? 'Pinjaman Pertama' : '',
                         ]);
                     }
                 }

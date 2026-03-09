@@ -181,6 +181,7 @@
                                                 class="form-control form-control-sm notes-input auto-save"
                                                 placeholder="Catatan..."
                                                 maxlength="100"
+                                                value="{{ $member->notes }}"
                                                 data-field="notes"
                                                 data-row="{{ $globalIndex }}">
                                     </td>
