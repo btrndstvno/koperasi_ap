@@ -360,6 +360,37 @@ class MemberController extends Controller
             $reason = $request->reason;
             $baseNotes = "Nonaktif: $reason"; 
 
+            // 1.5. BATALKAN TRANSAKSI POTONG GAJI BULAN INI
+            // Jika sudah ada data input massal bulan ini, hapus & rollback efeknya
+            $currentMonthStart = now()->startOfMonth()->toDateString();
+            $currentMonthEnd = now()->endOfMonth()->toDateString();
+
+            $payrollTrx = Transaction::where('member_id', $member->id)
+                ->where('payment_method', 'payroll_deduction')
+                ->whereBetween('transaction_date', [$currentMonthStart, $currentMonthEnd])
+                ->whereIn('type', [Transaction::TYPE_LOAN_REPAYMENT, Transaction::TYPE_SAVING_DEPOSIT])
+                ->get();
+
+            foreach ($payrollTrx as $trx) {
+                // Rollback simpanan yang sudah tercatat
+                if ($trx->type === Transaction::TYPE_SAVING_DEPOSIT && $trx->amount_saving > 0) {
+                    $member->decrement('savings_balance', $trx->amount_saving);
+                }
+                // Rollback cicilan: kembalikan sisa pinjaman
+                if ($trx->type === Transaction::TYPE_LOAN_REPAYMENT && $trx->loan_id && $trx->amount_principal > 0) {
+                    $relatedLoan = Loan::find($trx->loan_id);
+                    if ($relatedLoan) {
+                        $relatedLoan->increment('remaining_principal', $trx->amount_principal);
+                        if ($relatedLoan->status === 'paid') {
+                            $relatedLoan->update(['status' => 'active']);
+                        }
+                    }
+                }
+                $trx->delete();
+            }
+
+            $member->refresh();
+
             // 2. Snapshot Data Awal
             // Kita simpan saldo terakhir user sebelum dipotong-potong, untuk history.
             $finalBalanceSnapshot = $member->savings_balance;

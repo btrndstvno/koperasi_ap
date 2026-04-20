@@ -296,8 +296,11 @@ class ReportController extends Controller
         $endOfMonth = \Carbon\Carbon::create($year, $month)->endOfMonth()->toDateString();
         $startOfMonth = \Carbon\Carbon::create($year, $month)->startOfMonth()->toDateString();
 
-        // Ambil semua Member dengan loans dan ALL transactions (untuk kalkulasi historis)
-        $members = Member::with(['loans', 'transactions'])->get();
+        // Hanya tampilkan member aktif
+        // (Saat deactivate, transaksi potong gaji bulan ini sudah otomatis dihapus)
+        $members = Member::with(['loans', 'transactions'])
+            ->where('is_active', true)
+            ->get();
 
         // Process data dengan kalkulasi historis
         $processedMembers = $members->map(function ($member) use ($month, $year, $endOfMonth, $startOfMonth) {
@@ -371,9 +374,47 @@ class ReportController extends Controller
             $sisaTenorHistoris = 0;
 
             if ($activeLoan) {
-                // Selalu gunakan remaining_principal langsung dari loan 
-                // karena data ini sudah akurat dari import dan transaksi yang sudah dilakukan
-                $sisaPinjamanHistoris = (float) $activeLoan->remaining_principal;
+                // Jika pinjaman sudah lunas SEBELUM awal bulan laporan → pot_kop & sisa = 0
+                // (Artinya bulan ini sudah tidak ada cicilan lagi)
+                $loanPaidBeforeThisMonth = $activeLoan->status === Loan::STATUS_PAID
+                    && (float) $activeLoan->remaining_principal <= 0
+                    && $activeLoan->updated_at->toDateString() < $startOfMonth;
+
+                if ($loanPaidBeforeThisMonth) {
+                    $pot_kop = 0;
+                    $sisaPinjamanHistoris = 0;
+                } else {
+                    // Sisa SEBELUM bulan ini = remaining + pembayaran PINJAMAN INI dari awal bulan ini ke depan
+                    // Filter by loan_id agar pembayaran pinjaman baru (reloan) tidak ikut terhitung
+                    $paymentsFromThisMonthOnwards = $member->transactions
+                        ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
+                        ->where('loan_id', $activeLoan->id)
+                        ->filter(fn($t) => $t->transaction_date->toDateString() >= $startOfMonth)
+                        ->sum('amount_principal');
+
+                    $sisaSebelumBulanIni = (float) $activeLoan->remaining_principal + $paymentsFromThisMonthOnwards;
+
+                    // POT KOP khusus pinjaman ini (untuk kalkulasi sisa)
+                    $potKopThisLoan = $monthlyTransactions
+                        ->where('type', Transaction::TYPE_LOAN_REPAYMENT)
+                        ->where('loan_id', $activeLoan->id)
+                        ->sum('amount_principal');
+
+                    // Jika SEBELUM bulan ini sudah lunas → pot_kop harus 0
+                    if ($sisaSebelumBulanIni <= 0) {
+                        $pot_kop = 0;
+                    }
+
+                    // Sisa pinjaman SETELAH bayar bulan ini
+                    $sisaPinjamanHistoris = max(0, $sisaSebelumBulanIni - $potKopThisLoan);
+
+                    // Pinjaman yang sudah lunas DAN di-mark paid pada/sebelum akhir bulan laporan → sisa = 0
+                    if ($activeLoan->status === Loan::STATUS_PAID 
+                        && (float) $activeLoan->remaining_principal <= 0
+                        && $activeLoan->updated_at->toDateString() <= $endOfMonth) {
+                        $sisaPinjamanHistoris = 0;
+                    }
+                }
 
                 // Hitung sisa tenor dari sisa pinjaman / cicilan pokok
                 $monthlyPrincipal = $activeLoan->monthly_installment > 0 
@@ -398,9 +439,8 @@ class ReportController extends Controller
                 'pot_kop' => $pot_kop,
                 'iur_kop' => $iur_kop,
                 'iur_tunai' => $iur_tunai,
-                // JUMLAH = Total tagihan ke gaji (Potongan + Iuran Wajib/Sukarela Potong Gaji)
-                // Tidak termasuk Iuran Tunai (karena Iuran Tunai dibayar cash, bukan potong gaji)
-                'total' => $pot_kop + $iur_kop, 
+                // JUMLAH = POT KOP + IUR KOP + IUR TUNAI
+                'total' => $pot_kop + $iur_kop + $iur_tunai, 
                 'sisa_pinjaman' => $sisaPinjamanHistoris,
                 'sisa_tenor' => $sisaTenorHistoris,
                 'saldo_kop' => $saldoHistoris,

@@ -92,18 +92,9 @@ class TransactionController extends Controller
         $prevMonthMonth = $prevMonthDate->month;
         
         // 2. Current Month Transactions (for existing/edited values)
-        $currentMonth = $targetDate->format('Y-m');
-
-        // Pre-fetch transactions to avoid N+1 inside loop
-        // We need: 
-        // - Last Deduction (any time before target)
-        // - Previous Month Deduction (specific month)
-        // - Current Month Deductions (specific month)
-        
+        $currentMonth = $targetDate->format('Y-m');    
         $members = Member::where('is_active', true)
-        ->with(['loans', 'transactions' => function ($q) use ($targetMonthEnd) {
-            // Load all transactions up to current month end
-            // We need history for balance calculation too
+        ->with(['loans', 'transactions' => function ($q) use ($targetMonthEnd){
             $q->where('transaction_date', '<=', $targetMonthEnd->toDateString())
               ->orderBy('transaction_date', 'desc'); // Order by date desc for easier "latest" finding
         }])
@@ -135,7 +126,7 @@ class TransactionController extends Controller
             $loan_id = null;
 
             if ($activeLoanInPeriod) {
-                 $remainingPrincipal = $activeLoanInPeriod->remaining_principal;
+                 $remainingPrincipal = (float) $activeLoanInPeriod->remaining_principal;
                  
                  if ($remainingPrincipal > 100) { 
                      $pot_kop = $activeLoanInPeriod->monthly_installment > 0 
@@ -143,12 +134,7 @@ class TransactionController extends Controller
                         : $activeLoanInPeriod->monthly_principal;
                         
                      $sisa_pinjaman = $remainingPrincipal;
-                     
-                     // Sisa cicilan = dari progress loan (remaining_principal / cicilan per bulan)
-                     // Menampilkan kondisi saat ini SEBELUM bayar bulan ini
-                     // Setelah save/bayar, remaining_principal berkurang → sisa cicilan otomatis turun
                      $remaining_installments = $activeLoanInPeriod->remaining_installments;
-                     
                      $loan_id = $activeLoanInPeriod->id;
                  }
             }
@@ -220,13 +206,13 @@ class TransactionController extends Controller
             });
                 
             // Final Values
-            $final_pot_kop = $existingPotKop ? $existingPotKop->amount_principal : ($activeLoanInPeriod ? $pot_kop : 0);
-            
-            // [FIX] Ensure pot_kop is never 0 if loan is active and no existing transaction
-            if ($activeLoanInPeriod && $final_pot_kop <= 0) {
-                 $final_pot_kop = $activeLoanInPeriod->monthly_installment > 0 
-                    ? $activeLoanInPeriod->monthly_installment 
-                    : $activeLoanInPeriod->monthly_principal;
+            // Jika tidak ada pinjaman aktif, pot_kop HARUS 0 (tidak peduli ada transaksi existing)
+            if (!$activeLoanInPeriod || $sisa_pinjaman <= 0) {
+                $final_pot_kop = 0;
+            } elseif ($existingPotKop) {
+                $final_pot_kop = $existingPotKop->amount_principal;
+            } else {
+                $final_pot_kop = $pot_kop;
             }
 
             $final_iur_kop = $existingIurKop ? $existingIurKop->amount_saving : $iur_kop_default;
