@@ -74,6 +74,7 @@ class MonthlyReportExport implements WithEvents, WithColumnWidths
                 $headingRows = [];
                 $subtotalRows = [];
                 $groupHeaderRows = [];
+                $csdOfficeTotals = null;
 
                 $monthName = \Carbon\Carbon::create($this->year, $this->month)->translatedFormat('F Y');
 
@@ -143,28 +144,104 @@ class MonthlyReportExport implements WithEvents, WithColumnWidths
                         }
                     }
 
-                    // Subtotal row
-                    $subtotalRows[] = $currentRow;
-                    $sheet->setCellValue('C' . $currentRow, 'SUBTOTAL ' . strtoupper($tag));
-                    $sheet->setCellValue('E' . $currentRow, $data->subtotal_pot);
-                    $sheet->setCellValue('F' . $currentRow, $data->subtotal_iur);
-                    $sheet->setCellValue('G' . $currentRow, $data->subtotal_iur_tunai);
-                    $sheet->setCellValue('H' . $currentRow, $data->subtotal_total);
-                    $sheet->setCellValue('I' . $currentRow, $data->subtotal_sisa_pinjaman);
-                    $sheet->setCellValue('J' . $currentRow, $data->subtotal_saldo_kop);
+                    if ($tag !== 'CSD') {
+                        // Subtotal row (Manager/Bangunan only)
+                        $subtotalRows[] = $currentRow;
+                        $sheet->setCellValue('C' . $currentRow, 'SUBTOTAL ' . strtoupper($tag));
+                        $sheet->setCellValue('E' . $currentRow, $data->subtotal_pot);
+                        $sheet->setCellValue('F' . $currentRow, $data->subtotal_iur);
+                        $sheet->setCellValue('G' . $currentRow, $data->subtotal_iur_tunai);
+                        $sheet->setCellValue('H' . $currentRow, $data->subtotal_total);
+                        $sheet->setCellValue('I' . $currentRow, $data->subtotal_sisa_pinjaman);
+                        $sheet->setCellValue('J' . $currentRow, $data->subtotal_saldo_kop);
 
-                    $sheet->getStyle('A' . $currentRow . ':L' . $currentRow)->applyFromArray([
-                        'font' => ['bold' => true],
-                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EEEEEE']],
-                        'borders' => ['top' => ['borderStyle' => Border::BORDER_THIN]],
-                    ]);
-                    foreach (['E', 'F', 'G', 'H', 'I', 'J'] as $col) {
-                        $sheet->getStyle($col . $currentRow)
-                            ->getNumberFormat()
-                            ->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+                        $sheet->getStyle('A' . $currentRow . ':L' . $currentRow)->applyFromArray([
+                            'font' => ['bold' => true],
+                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'EEEEEE']],
+                            'borders' => ['top' => ['borderStyle' => Border::BORDER_THIN]],
+                        ]);
+                        foreach (['E', 'F', 'G', 'H', 'I', 'J'] as $col) {
+                            $sheet->getStyle($col . $currentRow)
+                                ->getNumberFormat()
+                                ->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+                        }
+                    }
+
+                    if ($tag === 'CSD') {
+                        $csdMembers = $data->members->filter(function ($member) {
+                            return ($member->original_group ?? '') === 'CSD';
+                        });
+                        $officeMembers = $data->members->filter(function ($member) {
+                            return ($member->original_group ?? '') === 'Office';
+                        });
+
+                        $csdOfficeTotals = [
+                            'csd' => [
+                                'pot_kop' => $csdMembers->sum('pot_kop'),
+                                'iur_kop' => $csdMembers->sum('iur_kop'),
+                                'iur_tunai' => $csdMembers->sum('iur_tunai'),
+                                'total' => $csdMembers->sum('total'),
+                                'sisa_pinjaman' => $csdMembers->sum('sisa_pinjaman'),
+                                'saldo_kop' => $csdMembers->sum('saldo_kop'),
+                            ],
+                            'office' => [
+                                'pot_kop' => $officeMembers->sum('pot_kop'),
+                                'iur_kop' => $officeMembers->sum('iur_kop'),
+                                'iur_tunai' => $officeMembers->sum('iur_tunai'),
+                                'total' => $officeMembers->sum('total'),
+                                'sisa_pinjaman' => $officeMembers->sum('sisa_pinjaman'),
+                                'saldo_kop' => $officeMembers->sum('saldo_kop'),
+                            ],
+                            'combined' => [
+                                'pot_kop' => $data->subtotal_pot,
+                                'iur_kop' => $data->subtotal_iur,
+                                'iur_tunai' => $data->subtotal_iur_tunai,
+                                'total' => $data->subtotal_total,
+                                'sisa_pinjaman' => $data->subtotal_sisa_pinjaman,
+                                'saldo_kop' => $data->subtotal_saldo_kop,
+                            ],
+                        ];
                     }
 
                     $currentRow += 2; // Blank row separator between groups
+                }
+
+                if ($csdOfficeTotals !== null) {
+                    $summaryRows = [
+                        ['label' => 'TOTAL KARYAWAN CSD', 'values' => $csdOfficeTotals['csd'], 'color' => '008000'],
+                        ['label' => 'TOTAL KARYAWAN OFFICE', 'values' => $csdOfficeTotals['office'], 'color' => '008000'],
+                        ['label' => 'TOTAL SEMUA KARYAWAN', 'values' => $csdOfficeTotals['combined'], 'color' => 'FF0000'],
+                    ];
+
+                    foreach ($summaryRows as $summaryRow) {
+                        $sheet->setCellValue('C' . $currentRow, $summaryRow['label']);
+                        $sheet->setCellValue('E' . $currentRow, $summaryRow['values']['pot_kop']);
+                        $sheet->setCellValue('F' . $currentRow, $summaryRow['values']['iur_kop']);
+                        $sheet->setCellValue('G' . $currentRow, $summaryRow['values']['iur_tunai']);
+                        $sheet->setCellValue('H' . $currentRow, $summaryRow['values']['total']);
+                        $sheet->setCellValue('I' . $currentRow, $summaryRow['values']['sisa_pinjaman']);
+                        $sheet->setCellValue('J' . $currentRow, $summaryRow['values']['saldo_kop']);
+
+                        $sheet->getStyle('A' . $currentRow . ':L' . $currentRow)->applyFromArray([
+                            'font' => [
+                                'bold' => true,
+                                'color' => ['rgb' => $summaryRow['color']],
+                            ],
+                            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['rgb' => 'FFFF00']],
+                            'borders' => [
+                                'top' => ['borderStyle' => Border::BORDER_THIN],
+                                'bottom' => ['borderStyle' => Border::BORDER_THIN],
+                            ],
+                        ]);
+
+                        foreach (['E', 'F', 'G', 'H', 'I', 'J'] as $col) {
+                            $sheet->getStyle($col . $currentRow)
+                                ->getNumberFormat()
+                                ->setFormatCode(NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1);
+                        }
+
+                        $currentRow++;
+                    }
                 }
 
                 // Grand Total row

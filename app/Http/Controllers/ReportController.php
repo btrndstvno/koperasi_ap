@@ -434,6 +434,7 @@ class ReportController extends Controller
                 'nik_numeric' => (int) preg_replace('/[^0-9]/', '', $member->nik),
                 'name' => $member->name,
                 'group_tag' => $member->group_tag ?? 'Office',
+                'original_group' => $member->group_tag ?? 'Office',
                 'dept' => $member->dept,
                 'csd' => $member->group_tag ?? '-',
                 'pot_kop' => $pot_kop,
@@ -449,13 +450,23 @@ class ReportController extends Controller
             ];
         })->sortBy('nik_numeric');
 
-        // Grouping
-        $groupOrder = ['Manager' => 1, 'Bangunan' => 2, 'CSD' => 3, 'Office' => 4];
+        // Grouping - Gabungkan CSD dan Office menjadi satu grup
+        $groupOrder = ['Manager' => 1, 'Bangunan' => 2, 'CSD' => 3];
         
-        $groupedData = $processedMembers->groupBy('group_tag')->map(function ($items, $tag) {
+        // Map group_tag CSD dan Office menjadi CSD (untuk grouping)
+        $processedMembers = $processedMembers->map(function ($member) {
+            if (in_array($member->group_tag, ['CSD', 'Office'])) {
+                $member->display_group = 'CSD'; // Gunakan untuk grouping
+            } else {
+                $member->display_group = $member->group_tag;
+            }
+            return $member;
+        });
+        
+        $groupedData = $processedMembers->groupBy('display_group')->map(function ($items, $tag) {
             return (object) [
                 'name' => $tag,
-                'members' => $items,
+                'members' => $items->sortBy('nik_numeric'),
                 'subtotal_pot' => $items->sum('pot_kop'),
                 'subtotal_iur' => $items->sum('iur_kop'),
                 'subtotal_iur_tunai' => $items->sum('iur_tunai'),

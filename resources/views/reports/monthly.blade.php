@@ -161,6 +161,7 @@
                                 </tr>
                                 @endforelse
                             </tbody>
+                            @if($tag !== 'CSD')
                             <tfoot class="table-light fw-bold">
                                 <tr>
                                     <td colspan="4" class="text-end">SUBTOTAL {{ strtoupper($tag) }}</td>
@@ -173,6 +174,7 @@
                                     <td></td>
                                 </tr>
                             </tfoot>
+                            @endif
                         </table>
                     </div>
                 </div>
