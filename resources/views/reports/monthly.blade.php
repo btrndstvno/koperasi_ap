@@ -14,6 +14,7 @@
         .card { border: none !important; box-shadow: none !important; margin: 0 !important; padding: 0 !important; }
         .card-header { display: none !important; }
         .card-body { padding: 0 !important; }
+        .top-navbar { display: none !important; }
         .tab-content { display: block !important; }
         .tab-pane { display: block !important; opacity: 1 !important; visibility: visible !important; margin-bottom: 8px; page-break-inside: avoid; }
         .tab-pane:not(.active) { display: block !important; }
@@ -29,12 +30,17 @@
         .grand-total-summary .h4, .grand-total-summary .h5 { font-size: 16px !important; }
         .grand-total-summary hr { margin: 3px 0 !important; }
         .grand-total-summary .p-3 { padding: 5px !important; }
+        .summary-highlight td { background: #fff3cd !important; color: #000 !important; }
+        .summary-grand td { background: #1a5276 !important; color: #fff !important; }
+        .summary-highlight td, .summary-grand td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         
         /* Show tab title in print */
         .print-tab-title { display: block !important; font-size: 16px; font-weight: bold; margin-bottom: 2px; border-bottom: 1px solid #000; padding-bottom: 1px; }
     }
     .print-tab-title { display: none; }
     .table-sm td, .table-sm th { font-size: 0.85rem; vertical-align: middle; }
+    .summary-highlight td { background: #fff3cd !important; color: #000 !important; }
+    .summary-grand td { background: #1a5276 !important; color: #fff !important; }
 </style>
 
 <div class="d-flex justify-content-between align-items-center mb-4 no-print">
@@ -181,36 +187,64 @@
                 @php $isFirst = false; @endphp
             @endforeach
         </div>
-        
-        <!-- Grand Total Summary -->
-        <div class="p-3 border-top bg-light">
-            <div class="row text-center fw-bold">
-                <div class="col">
-                    <small class="d-block text-muted">TOTAL POT KOP</small>
-                    <span class="text-danger h5">Rp {{ number_format($grandTotal->pot_kop, 0, ',', '.') }}</span>
-                </div>
-                <div class="col">
-                    <small class="d-block text-muted">TOTAL IUR KOP</small>
-                    <span class="text-success h5">Rp {{ number_format($grandTotal->iur_kop, 0, ',', '.') }}</span>
-                </div>
-                <div class="col">
-                    <small class="d-block text-muted">TOTAL IUR TUNAI</small>
-                    <span class="text-primary h5">Rp {{ number_format($grandTotal->iur_tunai, 0, ',', '.') }}</span>
-                </div>
-                <div class="col">
-                    <small class="d-block text-muted">GRAND TOTAL</small>
-                    <span class="text-dark h4">Rp {{ number_format($grandTotal->total, 0, ',', '.') }}</span>
-                </div>
-                <div class="col">
-                    <small class="d-block text-muted">TOTAL SISA PINJAMAN</small>
-                    <span class="text-danger h5">Rp {{ number_format($grandTotal->sisa_pinjaman, 0, ',', '.') }}</span>
-                </div>
-                <div class="col">
-                    <small class="d-block text-muted">TOTAL SALDO SIMPANAN</small>
-                    <span class="text-success h5">Rp {{ number_format($grandTotal->saldo_kop, 0, ',', '.') }}</span>
-                </div>
+
+        @isset($csdOfficeTotals)
+        <div class="p-3 border-top bg-light grand-total-summary">
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm mb-0">
+                    <thead class="table-light">
+                        <tr class="text-center align-middle">
+                            <th>KETERANGAN</th>
+                            <th>POT KOP</th>
+                            <th>IUR KOP</th>
+                            <th>IUR TUNAI</th>
+                            <th>JUMLAH</th>
+                            <th>SISA PINJAMAN</th>
+                            <th>SALDO KOP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="fw-bold summary-highlight">
+                            <td>TOTAL KARYAWAN CSD</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->csd->pot_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->csd->iur_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->csd->iur_tunai, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->csd->total, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->csd->sisa_pinjaman, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->csd->saldo_kop, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr class="fw-bold summary-highlight">
+                            <td>TOTAL KARYAWAN OFFICE</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->office->pot_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->office->iur_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->office->iur_tunai, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->office->total, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->office->sisa_pinjaman, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->office->saldo_kop, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr class="fw-bold summary-highlight">
+                            <td>TOTAL SEMUA KARYAWAN (CSD + OFFICE)</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->combined->pot_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->combined->iur_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->combined->iur_tunai, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->combined->total, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->combined->sisa_pinjaman, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($csdOfficeTotals->combined->saldo_kop, 0, ',', '.') }}</td>
+                        </tr>
+                        <tr class="fw-bold summary-grand">
+                            <td>GRAND TOTAL</td>
+                            <td class="text-end">{{ number_format($grandTotal->pot_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($grandTotal->iur_kop, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($grandTotal->iur_tunai, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($grandTotal->total, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($grandTotal->sisa_pinjaman, 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format($grandTotal->saldo_kop, 0, ',', '.') }}</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
+        @endisset
     </div>
 </div>
 @endsection

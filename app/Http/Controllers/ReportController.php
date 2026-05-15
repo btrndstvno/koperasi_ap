@@ -479,6 +479,27 @@ class ReportController extends Controller
             return $groupOrder[$key] ?? 999;
         });
 
+        $sumTotals = function ($items) {
+            return (object) [
+                'pot_kop' => $items->sum('pot_kop'),
+                'iur_kop' => $items->sum('iur_kop'),
+                'iur_tunai' => $items->sum('iur_tunai'),
+                'total' => $items->sum('total'),
+                'sisa_pinjaman' => $items->sum('sisa_pinjaman'),
+                'saldo_kop' => $items->sum('saldo_kop'),
+            ];
+        };
+
+        $csdMembers = $processedMembers->filter(fn($member) => ($member->original_group ?? '') === 'CSD');
+        $officeMembers = $processedMembers->filter(fn($member) => ($member->original_group ?? '') === 'Office');
+        $combinedMembers = $processedMembers->filter(fn($member) => in_array(($member->original_group ?? ''), ['CSD', 'Office'], true));
+
+        $csdOfficeTotals = (object) [
+            'csd' => $sumTotals($csdMembers),
+            'office' => $sumTotals($officeMembers),
+            'combined' => $sumTotals($combinedMembers),
+        ];
+
         // Grand Total
         $grandTotal = (object) [
             'pot_kop' => $processedMembers->sum('pot_kop'),
@@ -495,7 +516,7 @@ class ReportController extends Controller
             return Excel::download(new MonthlyReportExport($groupedData, $grandTotal, $month, $year), $filename);
         }
 
-        return view('reports.monthly', compact('groupedData', 'grandTotal', 'month', 'year'));
+        return view('reports.monthly', compact('groupedData', 'grandTotal', 'month', 'year', 'csdOfficeTotals'));
     }
 }
 
